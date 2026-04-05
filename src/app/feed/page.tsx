@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { translations, Language } from '@/lib/i18n';
 import { useLanguage } from '@/hooks/useLanguage';
 import { ScienceAvatar, ACCESSORIES } from '@/components/ScienceAvatar';
+import { emailService } from '@/lib/emailService';
 
 interface FeedComment {
   id: string;
@@ -133,16 +134,35 @@ export default function FeedPage() {
       .single();
 
     if (!error && comment) {
+      const newComment: FeedComment = {
+        id: comment.id,
+        author: comment.profiles?.alias || 'Guest',
+        degree: comment.show_details ? `${comment.profiles?.degree || ''} • ${isHe ? 'שנה' : 'Year'} ${comment.profiles?.year || ''}` : '',
+        avatarBase: comment.profiles?.avatar_base || 'brain',
+        text: comment.text,
+        user_id: comment.user_id
+      };
+
+      // 3. Optional: Send email to the original post author
+      const post = posts.find(p => p.id === postId);
+      if (post && post.user_id !== currentUser.id) {
+        // Fetch post author email
+        const getAuthorEmail = async () => {
+          const { data: authorProf } = await supabase.from('profiles').select('email, real_first_name, alias').eq('id', post.user_id).single();
+          if (authorProf?.email) {
+            emailService.sendNotificationEmail(
+              authorProf.email,
+              authorProf.real_first_name || authorProf.alias || 'Buddy',
+              `מישהו הגיב לפוסט שלך בפיד הקהילתי! ✨ תגובה: "${text.substring(0, 30)}..."`,
+              `Someone replied to your post in the Community Feed! ✨ Comment: "${text.substring(0, 30)}..."`
+            );
+          }
+        };
+        getAuthorEmail();
+      }
+
       setPosts(prev => prev.map(p => {
         if (p.id === postId) {
-          const newComment: FeedComment = {
-            id: comment.id,
-            author: comment.profiles?.alias || 'Guest',
-            degree: comment.show_details ? `${comment.profiles?.degree || ''} • ${isHe ? 'שנה' : 'Year'} ${comment.profiles?.year || ''}` : '',
-            avatarBase: comment.profiles?.avatar_base || 'brain',
-            text: comment.text,
-            user_id: comment.user_id
-          };
           return { ...p, comments: [...p.comments, newComment] };
         }
         return p;

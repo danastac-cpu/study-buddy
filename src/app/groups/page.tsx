@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { translations } from '@/lib/i18n';
 import { useLanguage } from '@/hooks/useLanguage';
 import { supabase } from '@/lib/supabase';
+import { emailService } from '@/lib/emailService';
 
 interface StudyGroup {
   id: string;
@@ -65,7 +66,7 @@ export default function GroupsBrowserPage() {
         return {
           id: g.id,
           title: g.topic,
-          course: g.course_name,
+          course: g.course,
           degree: g.profiles?.degree || '',
           year: g.profiles?.year || '',
           dateStr: g.date_str,
@@ -146,6 +147,35 @@ export default function GroupsBrowserPage() {
       }]);
 
       if (!error) {
+        // 2. Fetch Manager email & Create Update
+        const getManagerInfo = async () => {
+          const { data: groupData } = await supabase.from('study_groups').select('manager_id, topic, course').eq('id', groupId).single();
+          if (groupData) {
+            // Create Notification
+            await supabase.from('updates').insert([{
+              user_id: groupData.manager_id,
+              type: status === 'approved' ? 'new-member' : 'waitlist-join',
+              title_he: status === 'approved' ? 'חבר חדש הצטרף! 🎉' : 'מישהו הצטרף להמתנה ⌛',
+              title_en: status === 'approved' ? 'New Member Joined! 🎉' : 'Someone joined waitlist ⌛',
+              content_he: `המשתמש ${currentUser.profile?.alias || 'Sudent'} הצטרף לקבוצה "${groupData.topic}".`,
+              content_en: `User ${currentUser.profile?.alias || 'Student'} joined your group "${groupData.topic}".`,
+              group_id: groupId
+            }]);
+
+            // Send Email to Manager
+            const { data: managerProf } = await supabase.from('profiles').select('email, real_first_name, alias').eq('id', groupData.manager_id).single();
+            if (managerProf?.email) {
+              emailService.sendNotificationEmail(
+                managerProf.email,
+                managerProf.real_first_name || managerProf.alias || 'Manager',
+                `חדשות טובות! מישהו הצטרף לקבוצת הלמידה שלך ב-${groupData.course || 'Study Group'}. בוא/י לצ׳אט כדי להתחיל! 🚀`,
+                `Good news! Someone joined your study group in ${groupData.course || 'Study Group'}. Head to the chat to start! 🚀`
+              );
+            }
+          }
+        };
+        getManagerInfo();
+
         if (status === 'approved') {
           alert(isHe ? 'הצטרפת לקבוצה בהצלחה! לשם האמיתי שלך יחשף לכולם.' : 'Joined successfully! Your real name is now visible.');
           router.push(`/groups/${groupId}`);

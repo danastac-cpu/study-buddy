@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/hooks/useLanguage';
 import { translations } from '@/lib/i18n';
 import { ScienceAvatar } from '@/components/ScienceAvatar';
+import { emailService } from '@/lib/emailService';
 
 export default function HelpCenterPage() {
   const router = useRouter();
@@ -75,8 +76,32 @@ export default function HelpCenterPage() {
 
     if (!error) {
       setRequests(requests.map(r => r.id === postId ? { ...r, status: 'pending' } : r));
-      // Simulation: Save that current user offered help on this request
-      localStorage.setItem(`offered_${postId}`, 'true');
+      
+      // 2. Fetch requester profile to send notification & email
+      const reqInfo = requests.find(r => r.id === postId);
+      if (reqInfo && reqInfo.user_id !== userId) {
+        // Create DB Update/Notification
+        await supabase.from('updates').insert([{
+           user_id: reqInfo.user_id,
+           type: 'help',
+           title_he: 'הצעת עזרה חדשה! 🙋',
+           title_en: 'New Help Offer! 🙋',
+           content_he: `מישהו הציע לעזור לך בפוסט: "${reqInfo.course}".`,
+           content_en: `Someone offered help for your post: "${reqInfo.course}".`,
+           request_id: postId
+        }]);
+
+        // Send Email
+        const { data: prof } = await supabase.from('profiles').select('email, real_first_name, alias').eq('id', reqInfo.user_id).single();
+        if (prof?.email) {
+          emailService.sendNotificationEmail(
+            prof.email,
+            prof.real_first_name || prof.alias || 'Buddy',
+            `היי! מישהו הציע לעזור לך בשיעורי הבית ב-${reqInfo.course}! ✨ כנס/י לאתר כדי לאשר את העזרה.`,
+            `Hi! Someone offered to help with your ${reqInfo.course} homework! ✨ Log in to the site to approve the help.`
+          );
+        }
+      }
     }
   };
 

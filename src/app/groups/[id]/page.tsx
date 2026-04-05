@@ -31,14 +31,17 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
   const [onlineUsers, setOnlineUsers] = useState<Record<string, any>>({});
   const [members, setMembers] = useState<any[]>([]);
 
-  // Manager Edit Time State
+  // Group Details State
+  const [savedTopic, setSavedTopic] = useState('');
+  const [savedCourse, setSavedCourse] = useState('');
+  const [savedTimeStr, setSavedTimeStr] = useState('');
   const [isEditingTime, setIsEditingTime] = useState(false);
-  const [savedTimeStr, setSavedTimeStr] = useState(isHe ? 'מחר, 18:00' : 'Tomorrow, 6:00 PM');
+  const [editTimeValue, setEditTimeValue] = useState('');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // 1. Get current user and group members
+    // 1. Get current user
     supabase.auth.getUser().then(({ data: authData }) => {
       if (authData.user) {
         setUserId(authData.user.id);
@@ -49,7 +52,18 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
       }
     });
 
-    // Fetch actual members of this group
+    // 2. Fetch Group Details
+    const fetchGroupDetails = async () => {
+      const { data, error } = await supabase.from('study_groups').select('*').eq('id', roomId).single();
+      if (!error && data) {
+        setSavedTopic(data.topic);
+        setSavedTimeStr(data.date_str);
+        setEditTimeValue(data.date_str);
+        setSavedCourse(data.course || data.course_name || 'Study Group');
+      }
+    };
+
+    // 3. Fetch members
     const fetchMembers = async () => {
       const { data } = await supabase
         .from('group_enrollments')
@@ -59,9 +73,8 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
       
       if (data) setMembers(data);
     };
-    fetchMembers();
 
-    // 2. Fetch historic messages
+    // 4. Fetch messages
     const fetchMessages = async () => {
       const { data, error } = await supabase
         .from('messages')
@@ -71,9 +84,12 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
         
       if (!error && data) setMessages(data as Message[]);
     };
+
+    fetchGroupDetails();
+    fetchMembers();
     fetchMessages();
 
-    // 3. Subscribe to Realtime messages
+    // 5. Subscribe to Realtime messages
     const channel = supabase.channel(`room_${roomId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `room_id=eq.${roomId}` }, 
         (payload) => {
@@ -86,7 +102,7 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
       supabase.removeChannel(channel);
     };
   }, [roomId]);
- 
+
   // Presence Effect
   useEffect(() => {
     if (!userId || !roomId) return;
@@ -95,7 +111,8 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
       config: { presence: { key: userId } }
     })
     .on('presence', { event: 'sync' }, () => {
-      setOnlineUsers(pChannel.presenceState());
+      const state = pChannel.presenceState();
+      setOnlineUsers(state);
     })
     .subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
@@ -110,6 +127,14 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const handleSaveTime = async () => {
+    const { error } = await supabase.from('study_groups').update({ date_str: editTimeValue }).eq('id', roomId);
+    if (!error) {
+      setSavedTimeStr(editTimeValue);
+      setIsEditingTime(false);
+    }
+  };
+
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !userId) return;
@@ -117,7 +142,6 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
     const tmpMsg = newMessage;
     setNewMessage('');
     
-    // We assume 'messages' table exists in Supabase!
     const { error } = await supabase.from('messages').insert([{
       room_id: roomId,
       sender_id: userId,
@@ -126,7 +150,6 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
     }]);
 
     if(error) {
-      console.warn("Supabase insertion failed or table missing, falling back to local state:", error);
       setMessages(prev => [...prev, { id: Date.now().toString(), sender_name: userName, content: tmpMsg, created_at: new Date().toISOString(), sender_id: userId, room_id: roomId }]);
     }
   };
@@ -176,30 +199,30 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
         {/* Group Info Block */}
         <div style={{ background: 'var(--background-bg)', padding: '1rem', borderRadius: '8px', marginBottom: '2rem', border: '1px solid rgba(0,0,0,0.05)' }}>
            <h3 style={{ fontSize: '0.95rem', marginBottom: '0.5rem', color: 'var(--primary-dark)' }}>ℹ️ {isHe ? 'פרטי הקבוצה' : 'Group Details'}</h3>
-           <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.85rem' }}><strong>{isHe ? 'נושא:' : 'Topic:'}</strong> {isHe ? 'הכנה למבחן פרמקולוגיה קלינית' : 'Clinical Pharmacology Prep'}</p>
            
-           <div style={{ margin: '0 0 0.5rem 0', fontSize: '0.85rem', display: 'flex', alignItems: 'flex-start', gap: '0.5rem', flexWrap: 'wrap' }}>
-             <strong>{isHe ? 'תאריך:' : 'Date:'}</strong> 
-             {isEditingTime ? (
-               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                 <input type="date" className="input-field" style={{ padding: '0.2rem', fontSize: '0.8rem' }} />
-                 <input type="time" className="input-field" style={{ padding: '0.2rem', fontSize: '0.8rem' }} />
-                 <button onClick={() => { setIsEditingTime(false); setSavedTimeStr(isHe ? 'תאריך שונה לאחרונה' : 'Recently Updated'); }} className="btn-primary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem' }}>{isHe ? 'שמור' : 'Save'}</button>
-               </div>
-             ) : (
-               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                 <span>{savedTimeStr}</span>
-                 <button onClick={() => setIsEditingTime(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem' }} title={isHe ? "ערוך מועד" : "Edit Time"}>✏️</button>
-               </div>
-             )}
+           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                🗓️ 
+                {isEditingTime ? (
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    <input type="text" className="input-field" value={editTimeValue} onChange={(e) => setEditTimeValue(e.target.value)} style={{ padding: '0.2rem', fontSize: '0.8rem' }} />
+                    <button onClick={handleSaveTime} className="btn-primary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }}>Ok</button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>{savedTimeStr}</span>
+                    <button onClick={() => setIsEditingTime(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem' }} title={isHe ? "ערוך מועד" : "Edit Time"}>✏️</button>
+                  </div>
+                )}
+              </div>
            </div>
            
-           <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.85rem' }}><strong>{isHe ? 'קורס:' : 'Course:'}</strong> Pharma 101</p>
+           <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.85rem' }}><strong>{isHe ? 'קורס:' : 'Course:'}</strong> {savedCourse}</p>
         </div>
         
         <h3 style={{ fontSize: '1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           {isHe ? 'חברי הקבוצה' : 'Group Members'}
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>{isHe ? '🟢 מחובר' : '🟢 Online'}</span>
+          <span style={{ fontSize: '0.7rem', background: '#e8f5e9', color: '#2e7d32', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>{isHe ? '🟢 מחובר' : '🟢 Online'}</span>
         </h3>
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {members.map((member) => (

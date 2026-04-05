@@ -42,7 +42,7 @@ export default function CreateGroupPage() {
       .from('study_groups')
       .insert([{
         topic: title || (isHe ? 'קבוצה חדשה' : 'New Group'),
-        course_name: course,
+        course: course,
         description: desc,
         date_str: dateLabel,
         max_members: parseInt(maxMems),
