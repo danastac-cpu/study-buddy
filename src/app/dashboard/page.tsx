@@ -51,8 +51,12 @@ export default function DashboardPage() {
       
       if (profileData) {
         setProfile(profileData);
-        if(!profileData.has_completed_tour) {
-          setShowTour(true);
+        // FORCE RESET TOUR FOR TESTING (One-time, v6)
+        if (!profileData.has_reset_v6) {
+           await supabase.from('profiles').update({ has_completed_tour: false, has_reset_v6: true }).eq('id', authData.user.id);
+           setShowTour(true);
+        } else if(!profileData.has_completed_tour) {
+           setShowTour(true);
         }
       }
 
@@ -384,7 +388,7 @@ export default function DashboardPage() {
                 </p>
               )}
               <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                {profile?.degree} • {isHe ? 'שנה' : 'Year'} {profile?.year}
+                {isHe ? 'חוג' : 'Degree'}: {profile?.degree} • {isHe ? 'שנה' : 'Year'}: {profile?.year}
               </p>
             </div>
           </div>
@@ -436,7 +440,7 @@ export default function DashboardPage() {
           </div>
           <div className="glass-card">
             <h3 style={{ fontSize: '1rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
-              {isHe ? 'סיוע אישי פעיל' : 'Active Support'}
+              {isHe ? 'בקשות עזרה' : 'Help Requests'}
             </h3>
             <p style={{ fontSize: '2.5rem', fontWeight: '800', fontFamily: '"DynaPuff", cursive', color: 'var(--primary-color)', margin: 0 }}>{activeHelpSessions.length}</p>
           </div>

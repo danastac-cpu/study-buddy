@@ -163,12 +163,19 @@ export default function HelpCenterPage() {
       <main className="main-content">
         <header style={{ marginBottom: '2rem' }}>
           <h1 style={{ fontSize: '2.5rem', margin: 0, color: 'var(--primary-color)', fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive' }}>
-            {isHe ? 'בקשות עזרה פעילות' : 'Active Help Requests'}
+            {isHe ? 'בקשות עזרה (אנונימי 🔒)' : 'Help Requests (Anonymous 🔒)'}
           </h1>
-          <p style={{ fontSize: '1.1rem', color: 'var(--text-main)', marginTop: '0.8rem', marginBottom: '1.5rem', fontWeight: '500' }}>
-            {isHe ? 'מצא/י חברים שזקוקים למומחיות שלך. הצע/י עזרה ותוכל להרוויח כוכבים!' : 'Find peers who need your expertise. Offer help and earn reward stars!'}
-          </p>
         </header>
+
+        {/* Anonymity Banner */}
+        <div style={{ background: 'rgba(76, 175, 80, 0.08)', border: '1px solid rgba(76, 175, 80, 0.2)', padding: '1rem 1.5rem', borderRadius: '12px', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <span style={{ fontSize: '1.5rem' }}>🤝</span>
+          <p style={{ margin: 0, fontSize: '0.9rem', color: '#2E7D32', fontWeight: '500' }}>
+              {isHe 
+                ? 'מרכז העזרה הוא מקום בטוח להתייעץ באנונימיות. השם האמיתי שלכם לא יפורסם כאן, רק הפרטים שתבחרו.' 
+                : 'The Help Center is a safe place to consult anonymously. Your real name will not be published here, only the details you choose.'}
+          </p>
+        </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           

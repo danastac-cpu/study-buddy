@@ -196,8 +196,8 @@ export default function FeedPage() {
         text: newPostText,
         file_url: fileUrl,
         show_details: showDetails,
-        degree: currentUser.profile?.degree,
-        year: currentUser.profile?.year
+        degree: currentUser.profile?.degree || 'Student',
+        year: currentUser.profile?.year || '1'
       }])
       .select('*, profiles(alias, avatar_base, avatar_accessory, avatar_bg, degree, year)')
       .single();
@@ -322,6 +322,16 @@ export default function FeedPage() {
         <h1 style={{ fontSize: '2.5rem', margin: 0, fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive', color: 'var(--primary-color)' }}>
           {isHe ? 'פיד הקהילה' : 'Community Feed'}
         </h1>
+      </div>
+
+      {/* Anonymity Banner */}
+      <div style={{ background: 'rgba(138, 99, 210, 0.08)', border: '1px solid var(--primary-light)', padding: '1rem 1.5rem', borderRadius: '12px', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <span style={{ fontSize: '1.5rem' }}>🔒</span>
+        <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--primary-dark)', fontWeight: '500' }}>
+            {isHe 
+              ? 'הפיד הקהילתי הוא מרחב בטוח ואנונימי. רק אם תבחרו בכך, תוכלו לחשוף את התואר ושנת הלימוד שלכם.' 
+              : 'The Community Feed is a safe, anonymous space. Only if you choose to, you can reveal your degree and year.'}
+        </p>
       </div>
 
       <div className="glass-card" style={{ marginBottom: '2rem' }}>

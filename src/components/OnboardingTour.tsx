@@ -42,6 +42,13 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
       icon: '✨'
     },
     {
+      title: isHe ? 'האנונימיות שלכם 🔒' : 'Your Anonymity 🔒',
+      content: isHe 
+        ? 'הפיד הקהילתי ובקשות העזרה הם אנונימיים לגמרי! אתם יכולים לשתף ולהתייעץ בחופשיות. רק בקבוצות הלמידה אנחנו משתמשים בשמות אמיתיים כדי שתוכלו ללמוד יחד.'
+        : 'The Community Feed and Help Requests are fully anonymous! You can share and consult freely. We only use real names in Study Groups so you can collaborate effectively.',
+      icon: '🙈'
+    },
+    {
       title: isHe ? 'מוכנים? נצא לדרך! 💜' : 'Ready? Let\'s Go! 💜',
       content: isHe 
         ? 'סידרנו לכם הכל בדאשבורד. אתם מוזמנים להתחיל לחקור את האתר ולמצוא את שותפי הלמידה הבאים שלכם.'
