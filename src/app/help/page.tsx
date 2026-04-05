@@ -36,11 +36,11 @@ export default function HelpCenterPage() {
           nickname: r.profiles?.alias || 'Guest',
           degree: r.profiles?.degree || 'Student',
           year: r.profiles?.year || '',
-          content: r.content,
+          content: r.description || r.content, // Support both during migration
           status: r.status,
           urgency: r.target_date ? (isHe ? `עד ${r.target_date}` : `Until ${r.target_date}`) : (isHe ? 'פתוח' : 'Open'),
           duration: r.duration || '', 
-          course: r.course || r.course_name, // Support both during migration
+          course: r.course || r.course_name, 
           isOwn: r.user_id === user_id_temp || r.user_id === userData?.user?.id,
           user_id: r.user_id
         }));

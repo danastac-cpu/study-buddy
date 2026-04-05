@@ -72,13 +72,13 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
         if (partnerId) {
           const { data: pProf } = await supabase.from('profiles').select('*').eq('id', partnerId).single();
           if (pProf) {
-            setPartnerProfile({
-              id: partnerId,
-              alias: pProf.alias || 'Helper',
-              real_name: pProf.real_first_name + ' ' + (pProf.real_last_name || ''),
-              degree: pProf.degree,
-              year: pProf.year_of_study || pProf.year
-            });
+              setPartnerProfile({
+                id: partnerId,
+                alias: pProf.alias || 'Helper',
+                real_name: pProf.real_first_name + ' ' + (pProf.real_last_name || ''),
+                degree: pProf.degree === 'Tzameret' ? (isHe ? 'צמרת' : 'Tzameret') : pProf.degree,
+                year: (pProf.year === 'year4' ? (isHe ? 'ד\'' : '4') : (pProf.year_of_study || pProf.year))
+              });
           }
         }
       }
@@ -238,7 +238,7 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
         {/* Lesson Details Block */}
         <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.05)', boxShadow: 'var(--shadow-sm)' }}>
           <h3 style={{ fontSize: '0.9rem', marginBottom: '0.5rem', color: 'var(--primary-dark)' }}>ℹ️ {isHe ? 'פרטי השיעור' : 'Lesson Details'}</h3>
-          <p style={{ margin: '0 0 0.4rem 0', fontSize: '0.8rem' }}><strong>{isHe ? 'נושא:' : 'Topic:'}</strong> {requestDetails?.course_name || '...'}</p>
+          <p style={{ margin: '0 0 0.4rem 0', fontSize: '0.8rem' }}><strong>{isHe ? 'נושא:' : 'Topic:'}</strong> {requestDetails?.course || requestDetails?.course_name || '...'}</p>
           
           {isRequester && (
             <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px dashed var(--primary-light)' }}>

@@ -44,8 +44,8 @@ export default function CreateHelpRequestPage() {
 
     const { error } = await supabase.from('help_requests').insert([{
         user_id: currentUser.id,
-        course: course, // Unified column name
-        content: content,
+        course: course,
+        description: content,
         urgency: urgency,
         duration: durationLabel,
         target_date: urgency === 'this_week' ? targetDate : (urgency === 'today' ? new Date().toISOString() : null),

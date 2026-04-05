@@ -389,7 +389,7 @@ export default function DashboardPage() {
                 </p>
               )}
               <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                {isHe ? 'חוג' : 'Degree'}: {profile?.degree} • {isHe ? 'שנה' : 'Year'}: {profile?.year}
+                {isHe ? 'חוג' : 'Degree'}: {profile?.degree === 'Tzameret' ? (isHe ? 'צמרת' : 'Tzameret') : profile?.degree} • {isHe ? 'שנה' : 'Year'}: {profile?.year === 'year4' ? (isHe ? 'ד\'' : '4') : profile?.year}
               </p>
             </div>
           </div>

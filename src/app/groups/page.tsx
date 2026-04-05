@@ -69,8 +69,8 @@ export default function GroupsBrowserPage() {
           course: g.course,
           degree: g.profiles?.degree || '',
           year: g.profiles?.year || '',
-          dateStr: g.date_str,
-          description: g.description,
+          dateStr: g.date || g.date_str, // Support both during migration
+          description: g.description || g.text, // Support both during migration
           manager: g.profiles?.real_first_name || g.profiles?.alias || 'Manager',
           maxMembers: g.max_members,
           members: approved,

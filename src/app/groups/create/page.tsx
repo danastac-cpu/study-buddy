@@ -44,7 +44,7 @@ export default function CreateGroupPage() {
         topic: title || (isHe ? 'קבוצה חדשה' : 'New Group'),
         course: course,
         description: desc,
-        date_str: dateLabel,
+        date: dateLabel, // Corrected from date_str
         max_members: parseInt(maxMems),
         manager_id: currentUser.id
       }])
