@@ -35,24 +35,17 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
       icon: '💡'
     },
     {
-      title: isHe ? 'שיטת הכוכבים ⭐' : 'The Star System ⭐',
+      title: isHe ? 'פיד הקהילה 🔒' : 'Community Feed 🔒',
       content: isHe 
-        ? 'עזרה לאחרים מזכה אתכם בכוכבים! ככל שיש לכם יותר כוכבים, הדירוג שלכם עולה ואתם הופכים לסטודנטים "מומחים" בקהילה.'
-        : 'Helping others earns you stars! The more stars you have, the higher your rating, establishing you as an "Expert" in the community.',
-      icon: '✨'
-    },
-    {
-      title: isHe ? 'האנונימיות שלכם 🔒' : 'Your Anonymity 🔒',
-      content: isHe 
-        ? 'הפיד הקהילתי ובקשות העזרה הם אנונימיים לגמרי! אתם יכולים לשתף ולהתייעץ בחופשיות. רק בקבוצות הלמידה אנחנו משתמשים בשמות אמיתיים כדי שתוכלו ללמוד יחד.'
-        : 'The Community Feed and Help Requests are fully anonymous! You can share and consult freely. We only use real names in Study Groups so you can collaborate effectively.',
-      icon: '🙈'
+        ? 'כאן תוכלו לשאול שאלות, להתייעץ ולשתף תכנים באנונימיות מוחלטת. זה המקום שלכם להרגיש חופשי לטעות וללמוד מהשאלות של אחרים.'
+        : 'Here you can ask questions, consult, and share content with absolute anonymity. This is your space to feel free to make mistakes and learn from others.',
+      icon: '💬'
     },
     {
       title: isHe ? 'מוכנים? נצא לדרך! 💜' : 'Ready? Let\'s Go! 💜',
       content: isHe 
-        ? 'סידרנו לכם הכל בדאשבורד. אתם מוזמנים להתחיל לחקור את האתר ולמצוא את שותפי הלמידה הבאים שלכם.'
-        : 'Everything is organized for you on the Dashboard. Start exploring and find your next study buddies!',
+        ? 'סידרנו לכם הכל באזור האישי. אתם מוזמנים להתחיל לחקור את האתר ולמצוא את שותפי הלמידה הבאים שלכם.'
+        : 'Everything is organized for you in your Personal Area. Start exploring and find your next study buddies!',
       icon: '🎨'
     }
   ];

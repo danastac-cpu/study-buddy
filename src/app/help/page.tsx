@@ -40,7 +40,7 @@ export default function HelpCenterPage() {
           status: r.status,
           urgency: r.target_date ? (isHe ? `עד ${r.target_date}` : `Until ${r.target_date}`) : (isHe ? 'פתוח' : 'Open'),
           duration: r.duration || '', 
-          course: r.course_name,
+          course: r.course || r.course_name, // Support both during migration
           isOwn: r.user_id === user_id_temp || r.user_id === userData?.user?.id,
           user_id: r.user_id
         }));
@@ -168,12 +168,12 @@ export default function HelpCenterPage() {
         </header>
 
         {/* Anonymity Banner */}
-        <div style={{ background: 'rgba(76, 175, 80, 0.08)', border: '1px solid rgba(76, 175, 80, 0.2)', padding: '1rem 1.5rem', borderRadius: '12px', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span style={{ fontSize: '1.5rem' }}>🤝</span>
-          <p style={{ margin: 0, fontSize: '0.9rem', color: '#2E7D32', fontWeight: '500' }}>
+        <div style={{ background: 'rgba(76, 175, 80, 0.08)', border: '1px solid rgba(76, 175, 80, 0.2)', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <span style={{ fontSize: '1.5rem' }}>🔒</span>
+          <p style={{ margin: 0, fontSize: '0.95rem', color: '#2E7D32', fontWeight: '500', lineHeight: '1.5' }}>
               {isHe 
-                ? 'מרכז העזרה הוא מקום בטוח להתייעץ באנונימיות. השם האמיתי שלכם לא יפורסם כאן, רק הפרטים שתבחרו.' 
-                : 'The Help Center is a safe place to consult anonymously. Your real name will not be published here, only the details you choose.'}
+                ? 'מרכז העזרה הוא מקום בטוח להתייעץ באנונימיות מוחלטת. הפרטים האישיים והשמות שלכם ייחשפו רק ברגע שתחליטו לאשר עזרה ותעברו לצאט פרטי אחד על אחד.' 
+                : 'The Help Center is an anonymous safe space. Your personal details and names will be revealed only when you decide to approve help and start a 1-on-1 private chat.'}
           </p>
         </div>
 

@@ -51,10 +51,11 @@ export default function DashboardPage() {
       
       if (profileData) {
         setProfile(profileData);
-        // FORCE RESET TOUR FOR TESTING (One-time, v6)
-        if (!profileData.has_reset_v6) {
-           await supabase.from('profiles').update({ has_completed_tour: false, has_reset_v6: true }).eq('id', authData.user.id);
+        // FORCE RESET TOUR FOR TESTING (Using localStorage to prevent re-popups)
+        const tourResetKey = 'studybuddy_tour_reset_v7';
+        if (!localStorage.getItem(tourResetKey)) {
            setShowTour(true);
+           localStorage.setItem(tourResetKey, 'true');
         } else if(!profileData.has_completed_tour) {
            setShowTour(true);
         }
@@ -397,7 +398,7 @@ export default function DashboardPage() {
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <li>
             <Link href="/dashboard" className="btn-secondary" style={{ width: '100%', justifyContent: 'flex-start', background: 'var(--primary-light)', color: 'var(--primary-color)', border: 'none' }}>
-              {isHe ? 'אזור אישי (Dashboard)' : 'Dashboard'}
+              {isHe ? 'אזור אישי' : 'Personal Area'}
             </Link>
           </li>
           <li>
@@ -407,7 +408,7 @@ export default function DashboardPage() {
           </li>
           <li>
             <Link href="/help" className="btn-secondary" style={{ width: '100%', justifyContent: 'flex-start', border: 'none' }}>
-              {isHe ? 'מרכז התמיכה (Help Center)' : 'Help Center'}
+              {isHe ? 'מרכז עזרה' : 'Help Center'}
             </Link>
           </li>
           <li>

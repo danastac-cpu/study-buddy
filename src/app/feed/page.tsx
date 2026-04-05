@@ -57,12 +57,20 @@ export default function FeedPage() {
           setCurrentUser({ ...authData.user, profile: prof });
       }
 
-      const { data: postsData, error: postsError } = await supabase
+      let { data: postsData, error: postsError } = await supabase
         .from('feed_posts')
         .select('*, profiles(alias, avatar_base, avatar_accessory, avatar_bg, degree, year)')
         .order('created_at', { ascending: false });
 
-      if (!postsError && postsData) {
+      // Fallback: If join fails or returns empty but table might have data
+      if (postsError || !postsData || postsData.length === 0) {
+        const { data: rawPosts } = await supabase.from('feed_posts').select('*').order('created_at', { ascending: false }).limit(20);
+        if (rawPosts && rawPosts.length > 0) {
+            postsData = rawPosts;
+        }
+      }
+
+      if (postsData) {
         const formattedPosts = await Promise.all(postsData.map(async (p) => {
           const { data: commentsData } = await supabase
             .from('feed_comments')
