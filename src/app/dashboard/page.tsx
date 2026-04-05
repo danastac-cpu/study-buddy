@@ -1,0 +1,613 @@
+"use client"
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useLanguage } from '@/hooks/useLanguage';
+import { ScienceAvatar, ACCESSORIES, AVATARS, PASTEL_COLORS } from '@/components/ScienceAvatar';
+import { translations } from '@/lib/i18n';
+import { emailService } from '@/lib/emailService';
+
+export default function DashboardPage() {
+  const router = useRouter();
+  const { language, isReady, setLanguage } = useLanguage();
+  const t = translations[language];
+  const isHe = language === 'he';
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+
+  // Avatar Studio Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [tempAvatarId, setTempAvatarId] = useState('');
+  const [tempAccessoryId, setTempAccessoryId] = useState('');
+  const [tempColor, setTempColor] = useState('');
+  const [activeCategory, setActiveCategory] = useState('none');
+
+  // Real Profile State
+  const [profile, setProfile] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [acceptedGroups, setAcceptedGroups] = useState<any[]>([]);
+
+  // Notifications / Updates State
+  const [notifications, setNotifications] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData?.user) {
+        router.push('/');
+        return;
+      }
+
+      // 1. Fetch Profile
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
+      
+      if (profileData) {
+        setProfile(profileData);
+      }
+
+      // 2. Fetch Updates/Notifications
+      const { data: updatesData } = await supabase
+        .from('updates')
+        .select('*')
+        .eq('user_id', authData.user.id)
+        .order('created_at', { ascending: false });
+      
+      if (updatesData) {
+        setNotifications(updatesData.map(u => ({
+          id: u.id,
+          type: u.type,
+          titleHe: u.title_he,
+          titleEn: u.title_en,
+          contentHe: u.content_he,
+          contentEn: u.content_en,
+          requestId: u.request_id,
+          groupId: u.group_id
+        })));
+      }
+
+      // 3. Fetch Accepted Groups (Approved Enrollment OR Managed)
+      const { data: enrolled } = await supabase
+        .from('group_enrollments')
+        .select('*, study_groups(*)')
+        .eq('user_id', authData.user.id)
+        .eq('status', 'approved');
+      
+      const { data: managed } = await supabase
+        .from('study_groups')
+        .select('*')
+        .eq('manager_id', authData.user.id);
+
+      const allGroups = [
+        ...(enrolled?.map(e => e.study_groups) || []),
+        ...(managed || [])
+      ].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i); // Unique
+
+      setAcceptedGroups(allGroups.map(g => ({
+        id: g.id,
+        title: isHe ? `קבוצה: ${g.topic}` : `Group: ${g.topic}`,
+        details: g.date_str
+      })));
+
+      setIsLoading(false);
+    };
+
+    fetchData();
+
+    // Realtime listener for updates
+    const channel = supabase.channel('dashboard_updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'updates' }, () => {
+        fetchData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isHe, router]);
+
+  const handleWaitlistAccept = async (notifId: string, groupId: string) => {
+    // 1. Delete notification from DB
+    await supabase.from('updates').delete().eq('id', notifId);
+    setNotifications(prev => prev.filter(n => n.id !== notifId));
+
+    // 2. Update status in enrollments
+    const { data: authData } = await supabase.auth.getUser();
+    if (authData?.user) {
+      await supabase
+        .from('group_enrollments')
+        .update({ status: 'approved' })
+        .eq('group_id', groupId)
+        .eq('user_id', authData.user.id);
+    }
+
+    // 3. Trigger Mock Email
+    if (profile?.email) {
+      emailService.sendNotificationEmail(
+        profile.email,
+        isHe ? 'הצטרפת לקבוצה חדשה ב-StudyBuddy!' : 'You joined a new group on StudyBuddy!',
+        `שלום ${profile.real_first_name}, הצטרפת בהצלחה לקבוצה. נתראה שם!`,
+        `Hi ${profile.real_first_name}, you've successfully joined the group. See you there!`
+      );
+    }
+
+    alert(isHe ? 'יופי! הקבוצה התווספה למפגשים הקרובים שלך.' : 'Great! The group has been added to your upcoming sessions.');
+    router.push(`/groups/${groupId}`);
+  };
+
+  const handleWaitlistDecline = async (notifId: string) => {
+    await supabase.from('updates').delete().eq('id', notifId);
+    setNotifications(prev => prev.filter(n => n.id !== notifId));
+    alert(isHe ? 'בחרת לא להצטרף לקבוצה.' : 'You chose not to join the group.');
+  };
+
+  const handleDeclineUpdate = async (notifId: string, requestId?: string) => {
+    // 1. Remove notification
+    await supabase.from('updates').delete().eq('id', notifId);
+    setNotifications(prev => prev.filter(n => n.id !== notifId));
+
+    // 2. Logic for Reject (דחה)
+    if (requestId) {
+      if (profile?.email) {
+        emailService.sendNotificationEmail(
+          profile.email,
+          isHe ? 'עדכון לגבי בקשת העזרה שלך' : 'Update regarding your help request',
+          `הבקשה נמחקה בהצלחה מלוח הבקשות. תמיד אפשר ליצור אחת חדשה!`,
+          `Your request has been successfully removed from the request board. You can always create a new one!`
+        );
+      }
+
+      await supabase.from('help_requests').delete().eq('id', requestId);
+      alert(isHe ? 'הבקשה שלך נמחקה מלוח הבקשות אתה יכול ליצור בקשה חדשה אם אתה מעוניין!' : 'Your request was deleted! You can create a new one if you wish.');
+    }
+  };
+
+  /** Alias for backward compatibility if needed */
+  const handleDeleteRequestUpdate = (notifId: string, requestId?: string) => {
+    handleDeclineUpdate(notifId, requestId);
+  };
+
+  const handleSaveAvatar = async () => {
+    if (!profile) return;
+    
+    const { data: authData } = await supabase.auth.getUser();
+    if (authData?.user) {
+      const { error } = await supabase.from('profiles').update({
+        avatar_base: tempAvatarId,
+        avatar_accessory: tempAccessoryId,
+        avatar_bg: tempColor
+      }).eq('id', authData.user.id);
+
+      if (!error) {
+        setProfile((prev: any) => ({
+          ...prev,
+          avatar_base: tempAvatarId,
+          avatar_accessory: tempAccessoryId,
+          avatar_bg: tempColor
+        }));
+      }
+    }
+
+    setIsEditModalOpen(false);
+    alert(isHe ? 'האווטר עודכן בהצלחה! ✨' : 'Avatar updated successfully! ✨');
+  };
+
+  const openEditModal = () => {
+    if (!profile) return;
+    setTempAvatarId(profile.avatar_base || 'brain');
+    setTempAccessoryId(profile.avatar_accessory || 'none');
+    setTempColor(profile.avatar_bg || '#E0C8F0');
+    setIsEditModalOpen(true);
+  };
+
+  if (!isReady) return null;
+
+  return (
+    <div className="app-wrapper" style={{ position: 'relative', direction: isHe ? 'rtl' : 'ltr' }}>
+
+      {/* Avatar Studio Modal */}
+      {isEditModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsEditModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '700px' }}>
+            <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', textAlign: 'center' }}>{isHe ? ' עריכת הדמות 🎨' : 'Edit Avatar 🎨'}</h2>
+
+            <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+              {/* Left: Preview */}
+              <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ padding: '2rem', background: 'rgba(255,255,255,0.5)', borderRadius: '24px', border: '1px solid var(--primary-light)' }}>
+                  <ScienceAvatar
+                    avatarId={tempAvatarId}
+                    avatarFile={`${tempAvatarId}.png`}
+                    accessory={ACCESSORIES.find(a => a.id === tempAccessoryId) || null}
+                    backgroundColor={tempColor}
+                    size={160}
+                  />
+                </div>
+                <p style={{ fontWeight: 'bold', color: 'var(--primary-dark)' }}>{isHe ? 'תצוגה מקדימה' : 'Live Preview'}</p>
+
+                {/* Background Color Picker */}
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                  {PASTEL_COLORS.map(c => (
+                    <div
+                      key={c.id}
+                      onClick={() => setTempColor(c.color)}
+                      style={{
+                        width: '32px', height: '32px', borderRadius: '50%', background: c.color,
+                        cursor: 'pointer', border: tempColor === c.color ? '3px solid var(--primary-color)' : '2px solid white',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Right: Selectors */}
+              <div style={{ flex: '2 1 300px' }}>
+                {/* Category Selection */}
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                  <button onClick={() => setActiveCategory('none')} style={{ padding: '0.4rem 0.8rem', borderRadius: '2rem', fontSize: '0.8rem', background: activeCategory === 'none' ? 'var(--primary-color)' : 'white', color: activeCategory === 'none' ? 'white' : '#666', border: '1px solid var(--primary-light)' }}>{isHe ? 'דמויות' : 'Avatars'}</button>
+                  <button onClick={() => setActiveCategory('hats')} style={{ padding: '0.4rem 0.8rem', borderRadius: '2rem', fontSize: '0.8rem', background: activeCategory === 'hats' ? 'var(--primary-color)' : 'white', color: activeCategory === 'hats' ? 'white' : '#666', border: '1px solid var(--primary-light)' }}>{isHe ? 'כובעים' : 'Hats'}</button>
+                  <button onClick={() => setActiveCategory('glasses')} style={{ padding: '0.4rem 0.8rem', borderRadius: '2rem', fontSize: '0.8rem', background: activeCategory === 'glasses' ? 'var(--primary-color)' : 'white', color: activeCategory === 'glasses' ? 'white' : '#666', border: '1px solid var(--primary-light)' }}>{isHe ? 'משקפיים' : 'Glasses'}</button>
+                  <button onClick={() => setActiveCategory('medical')} style={{ padding: '0.4rem 0.8rem', borderRadius: '2rem', fontSize: '0.8rem', background: activeCategory === 'medical' ? 'var(--primary-color)' : 'white', color: activeCategory === 'medical' ? 'white' : '#666', border: '1px solid var(--primary-light)' }}>{isHe ? 'רפואי' : 'Medical'}</button>
+                </div>
+
+                <div className="picker-grid" style={{ maxHeight: '250px', overflowY: 'auto', padding: '0.5rem' }}>
+                  {activeCategory === 'none' ? (
+                    AVATARS.map(av => (
+                      <div key={av.id} className={`picker-item ${tempAvatarId === av.id ? 'active' : ''}`} onClick={() => setTempAvatarId(av.id)}>
+                        <img src={`/avatars/${av.file}`} alt={av.id} style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
+                      </div>
+                    ))
+                  ) : (
+                    ACCESSORIES.filter(a => a.category === activeCategory || a.id === 'none').map(acc => (
+                      <div key={acc.id} className={`picker-item ${tempAccessoryId === acc.id ? 'active' : ''}`} onClick={() => setTempAccessoryId(acc.id)}>
+                        {acc.file ? <img src={`/acessories/${acc.file}`} alt={acc.id} style={{ width: '80%', height: '80%', objectFit: 'contain' }} /> : <span>✖️</span>}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '2.5rem', borderTop: '1px solid var(--primary-light)', paddingTop: '1.5rem' }}>
+              <button onClick={() => setIsEditModalOpen(false)} className="btn-secondary" style={{ padding: '0.8rem 2rem' }}>{isHe ? 'ביטול' : 'Cancel'}</button>
+              <button onClick={handleSaveAvatar} className="btn-primary" style={{ padding: '0.8rem 2.5rem' }}>{isHe ? 'שמור שינויים ✨' : 'Save Changes ✨'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Language Toggle */}
+      <div style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 100 }}>
+        <button
+          onClick={() => setLanguage(language === 'he' ? 'en' : 'he')}
+          style={{ padding: '0.4rem 0.8rem', borderRadius: '2rem', border: '1px solid var(--primary-color)', background: 'white', cursor: 'pointer', fontWeight: 'bold' }}
+        >
+          {language === 'he' ? 'English (En)' : 'עברית (He)'}
+        </button>
+      </div>
+
+      <nav className="sidebar">
+
+        {/* NEW LAYOUT: Logo top, text middle, user bottom */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '2.5rem', borderBottom: '1px solid var(--primary-light)', paddingBottom: '2rem' }}>
+          <img src="/new_logo.png" alt="StudyBuddy Logo" style={{ width: '100%', maxWidth: '220px', height: 'auto', objectFit: 'contain', marginBottom: '0.5rem' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+          <h2 style={{ fontSize: '2.6rem', color: 'var(--primary-color)', margin: '0 0 1rem 0', fontWeight: '800', fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive', textAlign: 'center' }}>
+            StudyBuddy
+          </h2>
+
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', position: 'relative' }}>
+            {isLoading ? (
+              <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'var(--primary-light)', animation: 'pulse 1.5s infinite' }} />
+            ) : (profile && profile.avatar_base) ? (
+              <div style={{ position: 'relative', cursor: 'pointer' }} onClick={openEditModal} title={isHe ? 'עריכת אווטר' : 'Edit Avatar'}>
+                <ScienceAvatar
+                  avatarId={profile.avatar_base.replace('.png', '').replace('virus1', 'virus')}
+                  avatarFile={profile.avatar_base.replace('virus1', 'virus').includes('.png') ? profile.avatar_base.replace('virus1', 'virus') : `${profile.avatar_base.replace('virus1', 'virus')}.png`}
+                  accessory={ACCESSORIES.find((a: any) => a.id === profile.avatar_accessory || a.file === profile.avatar_accessory) || null}
+                  backgroundColor={profile.avatar_color || '#8A63D2'}
+                  size={80}
+                />
+                <div style={{ position: 'absolute', bottom: '-5px', right: '-5px', background: 'white', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.2)', border: '1px solid var(--primary-light)' }}>
+                  ✏️
+                </div>
+              </div>
+            ) : (
+              <ScienceAvatar avatarId="brain" avatarFile="brain.png" accessory={null} size={80} backgroundColor="#8A63D2" />
+            )}
+            <div style={{ textAlign: 'center', marginTop: '0.5rem' }}>
+              <p style={{ margin: 0, fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-dark)' }}>
+                {profile?.alias || (isHe ? 'אורח' : 'Guest')}
+              </p>
+              {profile?.real_first_name && (
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  {profile.real_first_name} {profile.real_last_name}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <li>
+            <Link href="/dashboard" className="btn-secondary" style={{ width: '100%', justifyContent: 'flex-start', background: 'var(--primary-light)', color: 'var(--primary-color)', border: 'none' }}>
+              {isHe ? 'אזור אישי (Dashboard)' : 'Dashboard'}
+            </Link>
+          </li>
+          <li>
+            <Link href="/groups" className="btn-secondary" style={{ width: '100%', justifyContent: 'flex-start', border: 'none' }}>
+              {isHe ? 'קבוצות למידה' : 'Study Groups'}
+            </Link>
+          </li>
+          <li>
+            <Link href="/help" className="btn-secondary" style={{ width: '100%', justifyContent: 'flex-start', border: 'none' }}>
+              {isHe ? 'מרכז התמיכה (Help Center)' : 'Help Center'}
+            </Link>
+          </li>
+          <li>
+            <Link href="/feed" className="btn-secondary" style={{ width: '100%', justifyContent: 'flex-start', border: 'none' }}>
+              {isHe ? 'פיד קהילתי' : 'Community Feed'}
+            </Link>
+          </li>
+        </ul>
+      </nav>
+
+      <main className="main-content">
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem' }}>
+          <h1 style={{ fontSize: '2.2rem', margin: 0, fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive' }}>
+            {isHe
+              ? `${profile?.real_first_name || 'חבר קהילה'}, כיף לראות אותך 💜`
+              : `Welcome back, ${profile?.real_first_name || 'Friend'}.`}
+          </h1>
+          <Link href="/" className="btn-secondary" onClick={async () => await supabase.auth.signOut()}>
+            {isHe ? 'התנתק' : 'Log out'}
+          </Link>
+        </header>
+
+        {/* Stats Section - Kept as requested */}
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '4rem' }}>
+          <div className="glass-card">
+            <h3 style={{ fontSize: '1rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+              {isHe ? 'קבוצות למידה פעילות' : 'Active Study Groups'}
+            </h3>
+            <p style={{ fontSize: '2.5rem', fontWeight: '800', fontFamily: '"DynaPuff", cursive', color: 'var(--primary-color)', margin: 0 }}>2</p>
+          </div>
+          <div className="glass-card">
+            <h3 style={{ fontSize: '1rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+              {isHe ? 'בקשות עזרה (1-על-1)' : 'Help Requests (1on1)'}
+            </h3>
+            <p style={{ fontSize: '2.5rem', fontWeight: '800', fontFamily: '"DynaPuff", cursive', color: 'var(--primary-color)', margin: 0 }}>1</p>
+          </div>
+          <div className="glass-card tooltip-container" style={{ background: 'var(--primary-color)', color: 'white' }}>
+            <h3 style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.8)', marginBottom: '0.5rem' }}>
+              {isHe ? 'כוכבי עזרה שנצברו' : 'Helper Stars Earned'}
+            </h3>
+            <p style={{ fontSize: '2.5rem', fontWeight: '800', fontFamily: '"DynaPuff", cursive', margin: 0 }}>{profile?.helper_stars || 0} ⭐</p>
+
+            <div className="tooltip-popup">
+              <strong style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--primary-dark)', fontSize: '1.05rem' }}>{isHe ? 'איך מרוויחים כוכבים? ⭐' : 'How to earn stars? ⭐'}</strong>
+              <p style={{ margin: '0 0 1rem 0', fontSize: '0.85rem', fontWeight: '400', color: '#666', lineHeight: '1.4' }}>
+                {isHe ? 'על כל שיעור שאת/ה מעביר/ה ועוזר/ת בו, מקבלים כוכבים בהתאם למשך העזרה:' : 'For every lesson you help with, you earn stars based on the duration:'}
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '2.5rem', color: '#666' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }}>
+                  <div style={{ background: 'rgba(255, 215, 0, 0.12)', padding: '0.4rem', borderRadius: '8px', minWidth: '40px', display: 'flex', justifyContent: 'center' }}>
+                    <span style={{ fontSize: '1.4rem', lineHeight: 1 }}>⭐</span>
+                  </div>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--primary-dark)' }}>15 {isHe ? 'דק׳' : 'Min'}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }}>
+                  <div style={{ background: 'rgba(255, 215, 0, 0.12)', padding: '0.4rem', borderRadius: '8px', minWidth: '60px', display: 'flex', justifyContent: 'center' }}>
+                    <span style={{ fontSize: '1.4rem', lineHeight: 1 }}>⭐⭐</span>
+                  </div>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--primary-dark)' }}>30 {isHe ? 'דק׳' : 'Min'}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }}>
+                  <div style={{ background: 'rgba(255, 215, 0, 0.12)', padding: '0.4rem', borderRadius: '8px', minWidth: '80px', display: 'flex', justifyContent: 'center' }}>
+                    <span style={{ fontSize: '1.4rem', lineHeight: 1 }}>⭐⭐⭐</span>
+                  </div>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--primary-dark)' }}>45 {isHe ? 'דק׳' : 'Min'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        {/* Main Aggregation Section */}
+        <section>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h2 style={{ fontSize: '1.8rem', fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive' }}>
+              {isHe ? 'מפגשים וצ׳אטים קרובים' : 'Upcoming Sessions & Chats'}
+            </h2>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+            {/* Dynamic Accepted Groups */}
+            {acceptedGroups.map((group, idx) => (
+              <Link key={idx} href={`/groups/${group.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', cursor: 'pointer', transition: 'transform 0.2s', borderLeft: isHe ? 'none' : '6px solid var(--primary-color)', borderRight: isHe ? '6px solid var(--primary-color)' : 'none' }}>
+                  <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>📚</div>
+                  <div style={{ flex: 1 }}>
+                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{group.title}</h3>
+                    <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.9rem', marginTop: '0.3rem' }}>{group.details}</p>
+                  </div>
+                  <div style={{ color: 'var(--primary-color)', fontWeight: '600' }}>{isHe ? 'היכנס לצ׳אט' : 'Enter Chat'} &rarr;</div>
+                </div>
+              </Link>
+            ))}
+
+            {/* Mock Private Mentoring */}
+            <Link href="/chat/help-request-123?role=helper" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', cursor: 'pointer', transition: 'transform 0.2s', borderLeft: isHe ? 'none' : '6px solid #4CAF50', borderRight: isHe ? '6px solid #4CAF50' : 'none' }}>
+                <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(76, 175, 80, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>🤝</div>
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem' }}>
+                    {isHe ? 'שיעור פרטי: אלגברה ליניארית (את/ה עוזר/ת)' : 'Private Session: Linear Algebra (You are helping)'}
+                  </h3>
+                  <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.9rem', marginTop: '0.3rem' }}>
+                    {isHe ? 'עם גלעד כהן • נקבע להיום ב-18:00' : 'With Gilad Cohen • Today, 6:00 PM'}
+                  </p>
+                </div>
+                <div style={{ color: '#4CAF50', fontWeight: '600' }}>{isHe ? 'היכנס לצ׳אט' : 'Enter Chat'} &rarr;</div>
+              </div>
+            </Link>
+
+            {/* Mock Study Group */}
+            <Link href="/groups/mock-123" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', cursor: 'pointer', transition: 'transform 0.2s', borderLeft: isHe ? 'none' : '6px solid var(--primary-color)', borderRight: isHe ? '6px solid var(--primary-color)' : 'none' }}>
+                <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>📚</div>
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem' }}>
+                    {isHe ? 'קבוצת למידה: פרמקולוגיה קלינית' : 'Study Group: Clinical Pharmacology'}
+                  </h3>
+                  <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.9rem', marginTop: '0.3rem' }}>
+                    {isHe ? 'היום ב-20:00 (4 חברים)' : 'Today, 8:00 PM (4 Members)'}
+                  </p>
+                </div>
+                <div style={{ color: 'var(--primary-color)', fontWeight: '600' }}>{isHe ? 'היכנס לצ׳אט' : 'Enter Chat'} &rarr;</div>
+              </div>
+            </Link>
+
+            {/* My Active Feed Post */}
+            <Link href="/feed" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', cursor: 'pointer', transition: 'transform 0.2s', borderLeft: isHe ? 'none' : '6px solid #FF9800', borderRight: isHe ? '6px solid #FF9800' : 'none' }}>
+
+                {/* Notification Badge */}
+                <div style={{ position: 'relative' }}>
+                  <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(255, 152, 0, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>📢</div>
+                  <div style={{ position: 'absolute', top: '-5px', right: '-5px', background: 'var(--primary-color)', color: 'white', fontSize: '0.8rem', fontWeight: 'bold', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 10px rgba(138, 99, 210, 0.6)' }}>
+                    2
+                  </div>
+                </div>
+
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#e65100' }}>
+                    {isHe ? 'פוסט שלך בפיד הקהילה' : 'Your Community Post'}
+                  </h3>
+                  <p style={{ color: 'var(--text-main)', margin: '0.2rem 0', fontSize: '0.95rem', fontWeight: '500' }}>
+                    "{isHe ? 'מידע על קינמטיקה... 📷 [תמונה מצורפת]' : 'Kinematics details... 📷 [Image Attached]'}"
+                  </p>
+                  <p style={{ color: 'var(--primary-color)', margin: 0, fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <span style={{ animation: 'pulse 2s infinite' }}>💬</span> {isHe ? '2 תגובות חדשות! לחץ לצפייה' : '2 New Replies! Click to view'}
+                  </p>
+                </div>
+                <div style={{ color: '#FF9800', fontSize: '1.2rem' }}>&rarr;</div>
+              </div>
+            </Link>
+
+          </div>
+        </section>
+
+        {/* Notifications / Updates Area */}
+        {notifications.length > 0 && (
+          <section style={{ marginTop: '4rem' }}>
+            <h2 style={{ fontSize: '1.8rem', fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive', marginBottom: '1.5rem', color: '#ff9800' }}>
+              {isHe ? 'עדכונים חשובים' : 'Important Updates'}
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {notifications.map(notif => (
+                <div key={notif.id} className="glass-card" style={{
+                  border: notif.type === 'approval' ? '2px dashed #ff9800' : (notif.type === 'helper-approved' ? '2px solid var(--primary-color)' : '2px solid #F44336'),
+                  background: notif.type === 'approval' ? 'rgba(255, 152, 0, 0.05)' : (notif.type === 'helper-approved' ? 'rgba(138, 99, 210, 0.05)' : 'rgba(244, 67, 54, 0.05)'),
+                  boxShadow: notif.type === 'helper-approved' ? '0 0 15px rgba(138, 99, 210, 0.4)' : undefined,
+                  animation: notif.type === 'helper-approved' ? 'pulse-glow 2s infinite' : undefined
+                }}>
+                  <style>{`
+                    @keyframes pulse-glow {
+                      0% { box-shadow: 0 0 5px rgba(138, 99, 210, 0.2); }
+                      50% { box-shadow: 0 0 20px rgba(138, 99, 210, 0.6); }
+                      100% { box-shadow: 0 0 5px rgba(138, 99, 210, 0.2); }
+                    }
+                  `}</style>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <div style={{ fontSize: '2rem' }}>{notif.type === 'approval' ? '🔔' : (notif.type === 'helper-approved' ? '✨' : '⏳')}</div>
+                    <div style={{ flex: 1 }}>
+                      <h3 style={{ margin: '0 0 0.5rem 0', color: notif.type === 'approval' ? '#e65100' : (notif.type === 'helper-approved' ? 'var(--primary-color)' : '#F44336') }}>
+                        {isHe ? notif.titleHe : notif.titleEn}
+                      </h3>
+                      <p style={{ margin: 0, color: 'var(--text-main)', fontSize: '0.95rem' }}>
+                        {isHe ? notif.contentHe : notif.contentEn}
+                      </p>
+                      <div style={{ marginTop: '1rem', display: 'flex', gap: '0.8rem' }}>
+                        {notif.type === 'approval' ? (
+                          <>
+                            <button onClick={() => router.push('/chat/chat_123?role=requester')} className="btn-primary" style={{ background: '#4CAF50', padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
+                              {isHe ? 'אשר והתחל צ׳אט' : 'Accept & Chat'}
+                            </button>
+                            <button onClick={() => handleDeclineUpdate(notif.id, notif.requestId)} className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
+                              {isHe ? 'דחה' : 'Decline'}
+                            </button>
+                          </>
+                        ) : notif.type === 'helper-approved' ? (
+                          <button onClick={() => router.push('/chat/chat_123?role=helper')} className="btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
+                            {isHe ? 'כנס לצ׳אט עם המבקש' : 'Enter Chat with Student'}
+                          </button>
+                        ) : notif.type === 'waiting-list-open' ? (
+                          <>
+                            <button onClick={() => handleWaitlistAccept(notif.id, notif.groupId || '')} className="btn-primary" style={{ background: '#4CAF50', padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
+                              {isHe ? 'המשך לצאט של הקבוצה' : 'Continue to Group Chat'}
+                            </button>
+                            <button onClick={() => handleWaitlistDecline(notif.id)} className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
+                              {isHe ? 'דחה' : 'Decline'}
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button className="btn-primary" style={{ background: '#4CAF50', padding: '0.5rem 1rem', fontSize: '0.9rem' }} onClick={() => setShowRescheduleModal(true)}>
+                              {isHe ? 'כן, עדכן זמנים' : 'Yes, Update Times'}
+                            </button>
+                            <button onClick={() => handleDeleteRequestUpdate(notif.id, notif.requestId)} className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
+                              {isHe ? 'לא, מחק בקשה' : 'No, Delete Request'}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+      </main>
+
+      {/* Reschedule Modal */}
+      {showRescheduleModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="glass-card" style={{ width: '400px', maxWidth: '90%', padding: '2rem' }}>
+            <h3 style={{ margin: '0 0 1rem 0', color: 'var(--primary-dark)', fontSize: '1.4rem' }}>
+              {isHe ? 'עדכון זמני הבקשה' : 'Update Request Times'}
+            </h3>
+
+            <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--text-main)' }}>
+              {isHe ? 'רמת דחיפות מועדפת' : 'Preferred Urgency'}
+            </label>
+            <select className="input-field" style={{ marginBottom: '1.5rem', width: '100%' }}>
+              <option value="this_week">{isHe ? 'השבוע' : 'This Week'}</option>
+              <option value="not_urgent">{isHe ? 'גמיש / לא דחוף' : 'Flexible / Not Urgent'}</option>
+            </select>
+
+            <label style={{ display: 'block', fontWeight: 'bold', margin: '0 0 0.1rem 0', color: 'var(--text-main)' }}>
+              {isHe ? 'תאריך ושעה' : 'Date & Time'}
+            </label>
+            <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.6rem' }}>
+              {isHe ? '(אופציונאלי)' : '(Optional)'}
+            </span>
+            <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
+              <input type="date" className="input-field" style={{ flex: 1 }} />
+              <input type="time" className="input-field" style={{ width: '150px' }} />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+              <button className="btn-secondary" onClick={() => setShowRescheduleModal(false)}>{isHe ? 'ביטול' : 'Cancel'}</button>
+              <button className="btn-primary" onClick={() => { setShowRescheduleModal(false); alert(isHe ? 'הזמנים עודכנו בהצלחה!' : 'Times updated successfully!'); }}>{isHe ? 'שמור' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

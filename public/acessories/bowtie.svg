@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 140" fill="none">
+  <!-- Left wing -->
+  <path d="M15 70 C15 25 105 18 130 70 C105 122 15 115 15 70Z" fill="#C084FC"/>
+  <path d="M15 70 C15 25 105 18 130 70" stroke="white" stroke-width="3" opacity="0.35" stroke-linecap="round"/>
+  <!-- Right wing -->
+  <path d="M245 70 C245 25 155 18 130 70 C155 122 245 115 245 70Z" fill="#C084FC"/>
+  <path d="M245 70 C245 25 155 18 130 70" stroke="white" stroke-width="3" opacity="0.35" stroke-linecap="round"/>
+  <!-- Highlight left -->
+  <path d="M30 52 Q70 32 115 68" stroke="white" stroke-width="2" opacity="0.25" stroke-linecap="round"/>
+  <!-- Highlight right -->
+  <path d="M230 52 Q190 32 145 68" stroke="white" stroke-width="2" opacity="0.25" stroke-linecap="round"/>
+  <!-- Center knot -->
+  <ellipse cx="130" cy="70" rx="22" ry="28" fill="#A855F7"/>
+  <ellipse cx="130" cy="62" rx="10" ry="7" fill="white" opacity="0.2"/>
+</svg>
