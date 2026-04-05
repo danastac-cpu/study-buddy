@@ -7,6 +7,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { ScienceAvatar, ACCESSORIES, AVATARS, PASTEL_COLORS } from '@/components/ScienceAvatar';
 import { translations } from '@/lib/i18n';
 import { emailService } from '@/lib/emailService';
+import { OnboardingTour } from '@/components/OnboardingTour';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -26,9 +27,12 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [acceptedGroups, setAcceptedGroups] = useState<any[]>([]);
+  const [activeHelpSessions, setActiveHelpSessions] = useState<any[]>([]);
 
   // Notifications / Updates State
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [userLatestPost, setUserLatestPost] = useState<any>(null);
+  const [showTour, setShowTour] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -47,6 +51,9 @@ export default function DashboardPage() {
       
       if (profileData) {
         setProfile(profileData);
+        if(!profileData.has_completed_tour) {
+          setShowTour(true);
+        }
       }
 
       // 2. Fetch Updates/Notifications
@@ -92,16 +99,55 @@ export default function DashboardPage() {
         details: g.date_str
       })));
 
+      // 4. Fetch Active Help Sessions (1-on-1 Chats)
+      const { data: helpData } = await supabase
+        .from('help_requests')
+        .select('*, profiles:user_id(alias, avatar_base, avatar_bg), helper_profile:helper_id(alias, avatar_base, avatar_bg)')
+        .or(`user_id.eq.${authData.user.id},helper_id.eq.${authData.user.id}`)
+        .not('status', 'eq', 'resolved');
+ 
+      if (helpData) {
+        setActiveHelpSessions(helpData.map(h => {
+          const isRequester = h.user_id === authData.user.id;
+          const otherParty = isRequester ? h.helper_profile : h.profiles;
+          return {
+            id: h.id,
+            topic: h.course_name,
+            otherName: otherParty?.alias || (isHe ? 'ממתין לעוזר...' : 'Waiting for helper...'),
+            isRequester
+          };
+        }));
+      }
+
+      // 5. Fetch User's Latest Feed Post
+      const { data: latestPost } = await supabase
+        .from('feed_posts')
+        .select('*, feed_comments(id)')
+        .eq('user_id', authData.user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (latestPost) {
+        setUserLatestPost({
+          text: latestPost.text,
+          commentCount: latestPost.feed_comments?.length || 0,
+          id: latestPost.id
+        });
+      } else {
+        setUserLatestPost(null);
+      }
+
       setIsLoading(false);
     };
 
     fetchData();
 
-    // Realtime listener for updates
-    const channel = supabase.channel('dashboard_updates')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'updates' }, () => {
-        fetchData();
-      })
+    // Realtime listeners
+    const channel = supabase.channel('dashboard_sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'updates' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'help_requests' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'group_enrollments' }, () => fetchData())
       .subscribe();
 
     return () => {
@@ -128,9 +174,9 @@ export default function DashboardPage() {
     if (profile?.email) {
       emailService.sendNotificationEmail(
         profile.email,
-        isHe ? 'הצטרפת לקבוצה חדשה ב-StudyBuddy!' : 'You joined a new group on StudyBuddy!',
-        `שלום ${profile.real_first_name}, הצטרפת בהצלחה לקבוצה. נתראה שם!`,
-        `Hi ${profile.real_first_name}, you've successfully joined the group. See you there!`
+        profile.real_first_name || profile.alias || 'Buddy',
+        `שלום, הצטרפת בהצלחה לקבוצה. נתראה שם!`,
+        `Hi, you've successfully joined the group. See you there!`
       );
     }
 
@@ -154,7 +200,7 @@ export default function DashboardPage() {
       if (profile?.email) {
         emailService.sendNotificationEmail(
           profile.email,
-          isHe ? 'עדכון לגבי בקשת העזרה שלך' : 'Update regarding your help request',
+          profile.real_first_name || profile.alias || 'Buddy',
           `הבקשה נמחקה בהצלחה מלוח הבקשות. תמיד אפשר ליצור אחת חדשה!`,
           `Your request has been successfully removed from the request board. You can always create a new one!`
         );
@@ -203,10 +249,21 @@ export default function DashboardPage() {
     setIsEditModalOpen(true);
   };
 
+  const handleTourComplete = async () => {
+    setShowTour(false);
+    if (!profile) return;
+    const { data: authData } = await supabase.auth.getUser();
+    if (authData?.user) {
+      await supabase.from('profiles').update({ has_completed_tour: true }).eq('id', authData.user.id);
+      setProfile((prev: any) => ({ ...prev, has_completed_tour: true }));
+    }
+  };
+
   if (!isReady) return null;
 
   return (
     <div className="app-wrapper" style={{ position: 'relative', direction: isHe ? 'rtl' : 'ltr' }}>
+      {showTour && <OnboardingTour onComplete={handleTourComplete} />}
 
       {/* Avatar Studio Modal */}
       {isEditModalOpen && (
@@ -307,7 +364,7 @@ export default function DashboardPage() {
                   avatarId={profile.avatar_base.replace('.png', '').replace('virus1', 'virus')}
                   avatarFile={profile.avatar_base.replace('virus1', 'virus').includes('.png') ? profile.avatar_base.replace('virus1', 'virus') : `${profile.avatar_base.replace('virus1', 'virus')}.png`}
                   accessory={ACCESSORIES.find((a: any) => a.id === profile.avatar_accessory || a.file === profile.avatar_accessory) || null}
-                  backgroundColor={profile.avatar_color || '#8A63D2'}
+                  backgroundColor={profile.avatar_bg || '#8A63D2'}
                   size={80}
                 />
                 <div style={{ position: 'absolute', bottom: '-5px', right: '-5px', background: 'white', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.2)', border: '1px solid var(--primary-light)' }}>
@@ -326,6 +383,9 @@ export default function DashboardPage() {
                   {profile.real_first_name} {profile.real_last_name}
                 </p>
               )}
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                {profile?.degree} • {isHe ? 'שנה' : 'Year'} {profile?.year}
+              </p>
             </div>
           </div>
         </div>
@@ -372,13 +432,13 @@ export default function DashboardPage() {
             <h3 style={{ fontSize: '1rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
               {isHe ? 'קבוצות למידה פעילות' : 'Active Study Groups'}
             </h3>
-            <p style={{ fontSize: '2.5rem', fontWeight: '800', fontFamily: '"DynaPuff", cursive', color: 'var(--primary-color)', margin: 0 }}>2</p>
+            <p style={{ fontSize: '2.5rem', fontWeight: '800', fontFamily: '"DynaPuff", cursive', color: 'var(--primary-color)', margin: 0 }}>{acceptedGroups.length}</p>
           </div>
           <div className="glass-card">
             <h3 style={{ fontSize: '1rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
-              {isHe ? 'בקשות עזרה (1-על-1)' : 'Help Requests (1on1)'}
+              {isHe ? 'סיוע אישי פעיל' : 'Active Support'}
             </h3>
-            <p style={{ fontSize: '2.5rem', fontWeight: '800', fontFamily: '"DynaPuff", cursive', color: 'var(--primary-color)', margin: 0 }}>1</p>
+            <p style={{ fontSize: '2.5rem', fontWeight: '800', fontFamily: '"DynaPuff", cursive', color: 'var(--primary-color)', margin: 0 }}>{activeHelpSessions.length}</p>
           </div>
           <div className="glass-card tooltip-container" style={{ background: 'var(--primary-color)', color: 'white' }}>
             <h3 style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.8)', marginBottom: '0.5rem' }}>
@@ -414,84 +474,80 @@ export default function DashboardPage() {
             </div>
           </div>
         </section>
-        {/* Main Aggregation Section */}
+ 
         <section>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
             <h2 style={{ fontSize: '1.8rem', fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive' }}>
               {isHe ? 'מפגשים וצ׳אטים קרובים' : 'Upcoming Sessions & Chats'}
             </h2>
           </div>
-
+ 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-
-            {/* Dynamic Accepted Groups */}
+            {/* Real Active Groups */}
             {acceptedGroups.map((group, idx) => (
-              <Link key={idx} href={`/groups/${group.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+              <Link key={`group-${idx}`} href={`/groups/${group.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                 <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', cursor: 'pointer', transition: 'transform 0.2s', borderLeft: isHe ? 'none' : '6px solid var(--primary-color)', borderRight: isHe ? '6px solid var(--primary-color)' : 'none' }}>
                   <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>📚</div>
                   <div style={{ flex: 1 }}>
                     <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{group.title}</h3>
                     <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.9rem', marginTop: '0.3rem' }}>{group.details}</p>
                   </div>
-                  <div style={{ color: 'var(--primary-color)', fontWeight: '600' }}>{isHe ? 'היכנס לצ׳אט' : 'Enter Chat'} &rarr;</div>
+                  <div style={{ color: 'var(--primary-color)', fontWeight: '600' }}>{isHe ? 'היכנס למפגש' : 'Enter Session'} &rarr;</div>
                 </div>
               </Link>
             ))}
-
-            {/* Mock Private Mentoring */}
-            <Link href="/chat/help-request-123?role=helper" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', cursor: 'pointer', transition: 'transform 0.2s', borderLeft: isHe ? 'none' : '6px solid #4CAF50', borderRight: isHe ? '6px solid #4CAF50' : 'none' }}>
-                <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(76, 175, 80, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>🤝</div>
-                <div style={{ flex: 1 }}>
-                  <h3 style={{ margin: 0, fontSize: '1.1rem' }}>
-                    {isHe ? 'שיעור פרטי: אלגברה ליניארית (את/ה עוזר/ת)' : 'Private Session: Linear Algebra (You are helping)'}
-                  </h3>
-                  <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.9rem', marginTop: '0.3rem' }}>
-                    {isHe ? 'עם גלעד כהן • נקבע להיום ב-18:00' : 'With Gilad Cohen • Today, 6:00 PM'}
-                  </p>
+ 
+            {/* Real Active Help Chats (1-on-1) */}
+            {activeHelpSessions.map((session, idx) => (
+              <Link key={`help-${idx}`} href={`/chat/${session.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', cursor: 'pointer', transition: 'transform 0.2s', borderLeft: isHe ? 'none' : '6px solid #4CAF50', borderRight: isHe ? '6px solid #4CAF50' : 'none' }}>
+                  <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(76, 175, 80, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>🤝</div>
+                  <div style={{ flex: 1 }}>
+                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>
+                      {session.topic} ({session.isRequester ? (isHe ? 'לבקשתך' : 'Your Request') : (isHe ? 'את/ה עוזר/ת' : 'You are helping')})
+                    </h3>
+                    <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.85rem', marginTop: '0.3rem' }}>
+                      {isHe ? 'עם' : 'With'} {session.otherName}
+                    </p>
+                  </div>
+                  <div style={{ color: '#4CAF50', fontWeight: '600' }}>{isHe ? 'היכנס לצ׳אט' : 'Enter Chat'} &rarr;</div>
                 </div>
-                <div style={{ color: '#4CAF50', fontWeight: '600' }}>{isHe ? 'היכנס לצ׳אט' : 'Enter Chat'} &rarr;</div>
+              </Link>
+            ))}
+ 
+            {acceptedGroups.length === 0 && activeHelpSessions.length === 0 && (
+              <div style={{ padding: '2rem', textAlign: 'center', background: 'rgba(0,0,0,0.02)', borderRadius: '16px', border: '1px dashed rgba(0,0,0,0.1)' }}>
+                <p style={{ color: 'var(--text-muted)', margin: 0 }}>
+                  {isHe ? 'אין כרגע מפגשים קרובים. זה הזמן להצטרף לקבוצה או לבקש עזרה!' : 'No upcoming sessions. Time to join a group or ask for help!'}
+                </p>
               </div>
-            </Link>
-
-            {/* Mock Study Group */}
-            <Link href="/groups/mock-123" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', cursor: 'pointer', transition: 'transform 0.2s', borderLeft: isHe ? 'none' : '6px solid var(--primary-color)', borderRight: isHe ? '6px solid var(--primary-color)' : 'none' }}>
-                <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>📚</div>
-                <div style={{ flex: 1 }}>
-                  <h3 style={{ margin: 0, fontSize: '1.1rem' }}>
-                    {isHe ? 'קבוצת למידה: פרמקולוגיה קלינית' : 'Study Group: Clinical Pharmacology'}
-                  </h3>
-                  <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.9rem', marginTop: '0.3rem' }}>
-                    {isHe ? 'היום ב-20:00 (4 חברים)' : 'Today, 8:00 PM (4 Members)'}
-                  </p>
-                </div>
-                <div style={{ color: 'var(--primary-color)', fontWeight: '600' }}>{isHe ? 'היכנס לצ׳אט' : 'Enter Chat'} &rarr;</div>
-              </div>
-            </Link>
-
-            {/* My Active Feed Post */}
+            )}
+            {/* My Active Feed Post (Dynamic) */}
             <Link href="/feed" style={{ textDecoration: 'none', color: 'inherit' }}>
               <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', cursor: 'pointer', transition: 'transform 0.2s', borderLeft: isHe ? 'none' : '6px solid #FF9800', borderRight: isHe ? '6px solid #FF9800' : 'none' }}>
-
-                {/* Notification Badge */}
                 <div style={{ position: 'relative' }}>
                   <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(255, 152, 0, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>📢</div>
-                  <div style={{ position: 'absolute', top: '-5px', right: '-5px', background: 'var(--primary-color)', color: 'white', fontSize: '0.8rem', fontWeight: 'bold', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 10px rgba(138, 99, 210, 0.6)' }}>
-                    2
-                  </div>
+                  {userLatestPost && userLatestPost.commentCount > 0 && (
+                    <div style={{ position: 'absolute', top: '-5px', right: '-5px', background: 'var(--primary-color)', color: 'white', fontSize: '0.8rem', fontWeight: 'bold', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 10px rgba(138, 99, 210, 0.6)' }}>
+                       {userLatestPost.commentCount}
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ flex: 1 }}>
                   <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#e65100' }}>
-                    {isHe ? 'פוסט שלך בפיד הקהילה' : 'Your Community Post'}
+                    {isHe ? 'הפוסט שלי בקהילה' : 'My Community Post'}
                   </h3>
                   <p style={{ color: 'var(--text-main)', margin: '0.2rem 0', fontSize: '0.95rem', fontWeight: '500' }}>
-                    "{isHe ? 'מידע על קינמטיקה... 📷 [תמונה מצורפת]' : 'Kinematics details... 📷 [Image Attached]'}"
+                    {userLatestPost 
+                      ? (userLatestPost.text.length > 40 ? userLatestPost.text.substring(0, 40) + '...' : userLatestPost.text)
+                      : (isHe ? 'עדיין לא פרסמת בפיד. בואו לשתף משהו!' : 'No posts yet. Share something with the community!')}
                   </p>
-                  <p style={{ color: 'var(--primary-color)', margin: 0, fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                    <span style={{ animation: 'pulse 2s infinite' }}>💬</span> {isHe ? '2 תגובות חדשות! לחץ לצפייה' : '2 New Replies! Click to view'}
-                  </p>
+                  {userLatestPost && (
+                    <p style={{ color: 'var(--primary-color)', margin: 0, fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                      <span>💬</span> {isHe ? `${userLatestPost.commentCount} תגובות` : `${userLatestPost.commentCount} replies`}
+                    </p>
+                  )}
                 </div>
                 <div style={{ color: '#FF9800', fontSize: '1.2rem' }}>&rarr;</div>
               </div>

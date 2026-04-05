@@ -45,7 +45,7 @@ export default function LandingPage() {
       <div style={{ zIndex: 1, display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'center', gap: '4rem', maxWidth: '1100px', width: '90%', marginTop: '4rem', marginBottom: '4rem' }}>
 
         {/* Left/Top Content: Branding & Login */}
-        <div style={{ flex: '1 1 400px', display: 'flex', flexDirection: 'column', direction: lang === 'he' ? 'rtl' : 'ltr', marginTop: '-6rem' }}>
+        <div style={{ flex: '1 1 400px', display: 'flex', flexDirection: 'column', direction: lang === 'he' ? 'rtl' : 'ltr', marginTop: '-14rem' }}>
 
           <div style={{ textAlign: 'center', marginBottom: '0.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <img src="/new_logo.png" alt="StudyBuddy Logo" style={{ width: '400px', height: '400px', maxWidth: '100%', marginBottom: '-3rem', objectFit: 'contain' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />

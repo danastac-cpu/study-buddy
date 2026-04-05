@@ -264,6 +264,14 @@ export default function GroupsBrowserPage() {
           );
         })}
       </div>
+ 
+      {groups.length === 0 && !isLoading && (
+        <div style={{ textAlign: 'center', padding: '4rem', background: 'rgba(0,0,0,0.02)', borderRadius: '16px', border: '1px dashed rgba(0,0,0,0.1)', marginTop: '2rem' }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>
+            {isHe ? 'אין עדיין קבוצות למידה פעילות. תהיה הראשון לפתוח אחת!' : 'No active study groups yet. Be the first to start one!'}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

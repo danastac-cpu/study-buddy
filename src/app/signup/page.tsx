@@ -135,7 +135,10 @@ export default function SignupPage() {
       fontFamily: "'Inter', sans-serif",
     }}>
       {/* Language toggle */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', maxWidth: '900px', margin: '0 auto 1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '900px', margin: '0 auto 1.5rem' }}>
+        <Link href="/" style={{ textDecoration: 'none', color: '#8A63D2', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.9rem' }}>
+           🏠 {isHe ? 'חזרה לדף הבית' : 'Back to Home'}
+        </Link>
         <button
           onClick={() => setLanguage(isHe ? 'en' : 'he')}
           style={{ padding: '0.5rem 1.2rem', borderRadius: '2rem', border: '1px solid #8A63D2', background: 'white', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', color: '#8A63D2' }}

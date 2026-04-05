@@ -28,6 +28,8 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
   const [newMessage, setNewMessage] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>('Guest');
+  const [onlineUsers, setOnlineUsers] = useState<Record<string, any>>({});
+  const [members, setMembers] = useState<any[]>([]);
 
   // Manager Edit Time State
   const [isEditingTime, setIsEditingTime] = useState(false);
@@ -36,17 +38,28 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // 1. Get current user
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setUserId(data.user.id);
-        // Fetch their friendly alias
-        supabase.from('profiles').select('alias').eq('id', data.user.id).single()
+    // 1. Get current user and group members
+    supabase.auth.getUser().then(({ data: authData }) => {
+      if (authData.user) {
+        setUserId(authData.user.id);
+        supabase.from('profiles').select('alias').eq('id', authData.user.id).single()
           .then((res) => {
             if (res.data?.alias) setUserName(res.data.alias);
           });
       }
     });
+
+    // Fetch actual members of this group
+    const fetchMembers = async () => {
+      const { data } = await supabase
+        .from('group_enrollments')
+        .select('user_id, profiles(alias, avatar_base)')
+        .eq('group_id', roomId)
+        .eq('status', 'approved');
+      
+      if (data) setMembers(data);
+    };
+    fetchMembers();
 
     // 2. Fetch historic messages
     const fetchMessages = async () => {
@@ -73,6 +86,25 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
       supabase.removeChannel(channel);
     };
   }, [roomId]);
+ 
+  // Presence Effect
+  useEffect(() => {
+    if (!userId || !roomId) return;
+ 
+    const pChannel = supabase.channel(`presence_${roomId}`, {
+      config: { presence: { key: userId } }
+    })
+    .on('presence', { event: 'sync' }, () => {
+      setOnlineUsers(pChannel.presenceState());
+    })
+    .subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await pChannel.track({ user_id: userId, user_name: userName });
+      }
+    });
+ 
+    return () => { supabase.removeChannel(pChannel); };
+  }, [roomId, userId, userName]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -170,34 +202,36 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>{isHe ? '🟢 מחובר' : '🟢 Online'}</span>
         </h3>
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <li style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary-color)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{userName.charAt(0).toUpperCase()}</div>
-            <div>
-              <span style={{ fontWeight: '500', display: 'block', fontSize: '0.9rem' }}>{userName} (You)</span>
-            </div>
-          </li>
-          <li style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-             <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#4CAF50', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>ד</div>
-             <div>
-               <span style={{ fontWeight: '500', display: 'block', fontSize: '0.9rem' }}>{isHe ? 'דניאל כליף' : 'Daniel K.'}</span>
-             </div>
-           </li>
-           <li style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-             <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#ff9800', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>נ</div>
-             <div>
-               <span style={{ fontWeight: '500', display: 'block', fontSize: '0.9rem' }}>{isHe ? 'נועה רוט' : 'Noa R.'}</span>
-             </div>
-           </li>
+          {members.map((member) => (
+            <li key={member.user_id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ position: 'relative' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary-color)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem' }}>
+                  {member.profiles?.avatar_base ? '👤' : (member.profiles?.alias?.charAt(0).toUpperCase() || '?')}
+                </div>
+                {onlineUsers[member.user_id] && (
+                  <div style={{ position: 'absolute', bottom: 0, right: 0, width: '10px', height: '10px', background: '#4CAF50', borderRadius: '50%', border: '2px solid white' }}></div>
+                )}
+              </div>
+              <div>
+                <span style={{ fontWeight: '500', display: 'block', fontSize: '0.9rem' }}>
+                  {member.profiles?.alias} {member.user_id === userId ? '(You)' : ''}
+                </span>
+              </div>
+            </li>
+          ))}
+          {members.length === 0 && (
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{isHe ? 'אין חברים נוספים עדיין' : 'No other members yet.'}</p>
+          )}
         </ul>
 
         <div style={{ marginTop: 'auto', paddingTop: '2rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-          <button 
-            onClick={handleCloseGroup} 
-            className="btn-primary" 
-            style={{ width: '100%', background: 'var(--primary-color)' }}
-          >
-            {isHe ? '🔒 סדרנו את הקבוצה (סגור)' : '🔒 We met (Close Group)'}
-          </button>
+            <button 
+              onClick={handleCloseGroup} 
+              className="btn-primary" 
+              style={{ width: '100%', background: 'var(--primary-color)', fontWeight: 'bold' }}
+            >
+              {isHe ? '✅ סיימנו ללמוד (סגור קבוצה)' : '✅ Finished Learning (Close Group)'}
+            </button>
           <button 
             onClick={handleDeleteGroup} 
             className="btn-secondary" 

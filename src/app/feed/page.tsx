@@ -176,7 +176,7 @@ export default function FeedPage() {
         text: newPostText,
         file_url: fileUrl,
         show_details: showDetails,
-        major: currentUser.profile?.major,
+        degree: currentUser.profile?.degree,
         year: currentUser.profile?.year
       }])
       .select('*, profiles(alias, avatar_base, avatar_accessory, avatar_bg, degree, year)')
@@ -356,13 +356,13 @@ export default function FeedPage() {
                 </div>
               </div>
 
-              {post.user_id === currentUser?.id && (
-                <div style={{ display: 'flex', gap: '0.6rem' }}>
-                  <button onClick={() => handleStartEdit(post)} style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                    {isHe ? 'ערוך' : 'Edit'}
+              {(post.user_id === currentUser?.id || currentUser?.profile?.is_admin) && (
+                <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.8rem' }}>
+                  <button onClick={() => handleStartEdit(post)} style={{ background: 'none', border: 'none', color: 'var(--primary-color)', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    ✏️ {isHe ? 'ערוך' : 'Edit'}
                   </button>
-                  <button onClick={() => handleDeletePost(post.id)} style={{ background: 'none', border: 'none', color: '#F44336', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                    {isHe ? 'מחק' : 'Delete'}
+                  <button onClick={() => handleDeletePost(post.id)} style={{ background: 'none', border: 'none', color: '#F44336', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    🗑️ {isHe ? 'מחק' : 'Delete'}
                   </button>
                 </div>
               )}
@@ -451,7 +451,7 @@ export default function FeedPage() {
                         ) : (
                             <>
                                 <p style={{ margin: 0, color: 'var(--text-main)' }}>{comment.text}</p>
-                                {comment.user_id === currentUser?.id && (
+                                { (comment.user_id === currentUser?.id || currentUser?.profile?.is_admin) && (
                                     <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.3rem' }}>
                                         <button onClick={() => handleStartEditComment(post.id, comment.id, comment.text)} style={{ background: 'none', border: 'none', color: 'var(--primary-color)', fontSize: '0.7rem', cursor: 'pointer', padding: 0 }}>
                                             {isHe ? 'ערוך' : 'Edit'}
