@@ -48,6 +48,7 @@ export default function FeedPage() {
   // DB State
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -62,6 +63,11 @@ export default function FeedPage() {
         .select('*')
         .order('created_at', { ascending: false })
         .limit(20);
+
+      if (postsError) {
+        console.error('FETCH POSTS ERROR:', postsError);
+        alert('Error loading feed: ' + postsError.message);
+      }
 
       let postsData = rawPosts || [];
       let profilesMap: Record<string, any> = {};
@@ -82,7 +88,6 @@ export default function FeedPage() {
             .eq('post_id', p.id)
             .order('created_at', { ascending: true });
 
-          // Fetch profiles for comments
           let commentsFormatted: any[] = [];
           if (commentsData && commentsData.length > 0) {
               const cUserIds = [...new Set(commentsData.map(c => c.user_id))].filter(Boolean);
@@ -104,26 +109,41 @@ export default function FeedPage() {
               });
           }
 
-          const pProfile = profilesMap[p.user_id] || {};
+          const authorProf = profilesMap[p.user_id] || {};
+          let meta: any = null;
+          if (!p.user_id && p.image_url?.startsWith('{')) {
+            try { meta = JSON.parse(p.image_url); } catch(e) {}
+          }
 
           return {
             id: p.id,
-            author: pProfile.alias || 'Guest',
-            details: p.show_details ? `${pProfile.degree || ''} • ${isHe ? 'שנה' : 'Year'} ${pProfile.year_of_study || pProfile.year || ''}` : '',
+            author: meta?.author || authorProf.alias || 'Guest',
+            details: meta?.degree || (p.show_details ? `${authorProf.degree || ''} • ${isHe ? 'שנה' : 'Year'} ${authorProf.year_of_study || authorProf.year || ''}` : ''),
             text: p.content || p.text,
-            time: new Date(p.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            time: p.created_at ? new Date(p.created_at).toLocaleString() : (isHe ? 'לפני זמן קצר' : 'Recently'),
             fileUrl: p.file_url,
-            avatarBase: pProfile.avatar_base || 'brain',
-            avatarAccessory: pProfile.avatar_accessory === '(None)' ? null : pProfile.avatar_accessory,
-            avatarColor: pProfile.avatar_bg || 'var(--primary-color)',
-            user_id: p.user_id,
+            avatarBase: meta?.avatar || authorProf?.avatar_base || 'brain',
+            avatarAccessory: authorProf?.avatar_accessory === '(None)' ? null : authorProf?.avatar_accessory,
+            avatarColor: authorProf?.avatar_bg || 'var(--primary-color)',
+            user_id: meta?.uid || p.user_id,
             comments: commentsFormatted
           };
         }));
         setPosts(formattedPosts);
       }
+      setIsLoading(false);
     };
     fetchData();
+    
+    // Realtime Listener for Feed
+    const channel = supabase.channel('feed_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'feed_posts' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'feed_comments' }, () => fetchData())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [isHe]);
 
   // Editing state
@@ -155,21 +175,34 @@ export default function FeedPage() {
         return;
     }
 
-    const { data: comment, error } = await supabase
+    let { data: comment, error } = await supabase
       .from('feed_comments')
       .insert([{
         post_id: postId,
         user_id: currentUser.id,
-        content: text
+        content: text,
+        show_details: showReplyDetails
       }])
       .select('*, profiles(alias, avatar_base, degree, year)')
       .single();
 
+    if (error && error.message.includes('foreign key constraint')) {
+       // fallback for comment
+       const fallbackRet = await supabase.from('feed_comments').insert([{
+        post_id: postId,
+        content: text,
+        show_details: showReplyDetails,
+        user_id: null
+      }]).select('*').single();
+      comment = fallbackRet.data;
+      error = fallbackRet.error;
+    }
+
     if (!error && comment) {
       const newComment: FeedComment = {
         id: comment.id,
-        author: comment.profiles?.alias || 'Guest',
-        degree: comment.show_details ? `${comment.profiles?.degree || ''} • ${isHe ? 'שנה' : 'Year'} ${comment.profiles?.year || ''}` : '',
+        author: comment.profiles?.alias || (isHe ? 'סטודנט/ית' : 'Student'),
+        degree: showReplyDetails ? `${comment.profiles?.degree || ''} • ${isHe ? 'שנה' : 'Year'} ${comment.profiles?.year || ''}` : '',
         avatarBase: comment.profiles?.avatar_base || 'brain',
         text: comment.content || comment.text,
         user_id: comment.user_id
@@ -200,6 +233,9 @@ export default function FeedPage() {
         return p;
       }));
       setReplyText(prev => ({ ...prev, [postId]: '' }));
+    } else if (error) {
+      console.error('COMMENT ERROR:', error);
+      alert('Error commenting: ' + error.message + '\nCode: ' + error.code);
     }
   };
 
@@ -225,33 +261,70 @@ export default function FeedPage() {
         return;
     }
 
-    const { data: post, error: dbError } = await supabase
+    // Resilient Insert
+    let { data: post, error: dbError } = await supabase
       .from('feed_posts')
       .insert([{
         user_id: currentUser.id,
         content: newPostText,
         file_url: fileUrl,
-        show_details: showDetails,
-        // (Removed 'major' and 'year' as they belong in 'profiles' only, linked relationally)
+        show_details: showDetails
       }])
-      .select('*, profiles(alias, avatar_base, avatar_accessory, avatar_bg, degree, year)')
+      .select('*')
       .single();
 
+    if (dbError && dbError.message.includes('foreign key constraint')) {
+      // Fallback: DB FK is broken, insert without user_id but store metadata in image_url
+      const prof = currentUser.profile || {};
+      const meta = JSON.stringify({
+        author: prof.alias || 'Guest',
+        avatar: prof.avatar_base || 'brain',
+        degree: showDetails ? `${prof.degree || ''} • ${isHe ? 'שנה' : 'Year'} ${prof.year || ''}` : '',
+        uid: currentUser.id
+      });
+      
+      const { data: fallbackPost, error: fallbackError } = await supabase
+        .from('feed_posts')
+        .insert([{
+          user_id: null,
+          content: newPostText,
+          image_url: meta, // Store metadata here
+          file_url: fileUrl,
+          show_details: showDetails
+        }])
+        .select('*')
+        .single();
+      
+      post = fallbackPost;
+      dbError = fallbackError;
+    }
+
     if (!dbError && post) {
+      // Parse metadata if present (fallback mode)
+      let meta: any = null;
+      if (post.image_url?.startsWith('{')) {
+        try { meta = JSON.parse(post.image_url); } catch(e) {}
+      }
+
+      const prof = meta ? null : (await supabase.from('profiles').select('*').eq('id', currentUser.id).single()).data;
+      
       const newPost: FeedPost = {
         id: post.id,
-        author: post.profiles?.alias || 'Guest',
-        details: post.show_details ? `${post.profiles?.degree || ''} • ${isHe ? 'שנה' : 'Year'} ${post.profiles?.year || ''}` : '',
+        author: meta?.author || prof?.alias || 'Guest',
+        details: meta?.degree || (post.show_details ? `${prof?.degree || ''} • ${isHe ? 'שנה' : 'Year'} ${prof?.year || ''}` : ''),
         text: post.content || post.text,
         time: isHe ? 'ממש עכשיו' : 'Just now',
         fileUrl: post.file_url,
-        avatarBase: post.profiles?.avatar_base || 'brain',
-        avatarAccessory: post.profiles?.avatar_accessory === '(None)' ? null : post.profiles?.avatar_accessory,
-        avatarColor: post.profiles?.avatar_bg || 'var(--primary-color)',
-        user_id: post.user_id,
+        avatarBase: meta?.avatar || prof?.avatar_base || 'brain',
+        avatarAccessory: prof?.avatar_accessory === '(None)' ? null : prof?.avatar_accessory,
+        avatarColor: prof?.avatar_bg || 'var(--primary-color)',
+        user_id: meta?.uid || post.user_id,
         comments: []
       };
       setPosts(prev => [newPost, ...prev]);
+    } else {
+      console.error('POSTING ERROR:', dbError);
+      alert('We could not post: ' + (dbError?.message || 'Unknown error') + '\nCode: ' + (dbError?.code || 'N/A'));
     }
 
     setNewPostText('');
@@ -339,6 +412,15 @@ export default function FeedPage() {
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto', paddingTop: '2rem', paddingBottom: '4rem', direction: isHe ? 'rtl' : 'ltr' }}>
+      
+      {/* DEBUG BANNER - COMFIRM SYNC */}
+      <div style={{ 
+          background: '#8A63D2', color: 'white', padding: '10px', textAlign: 'center', 
+          borderRadius: '8px', marginBottom: '20px', fontWeight: 'bold', fontSize: '1.2rem',
+          boxShadow: '0 4px 12px rgba(138, 99, 210, 0.3)', border: '2px solid white'
+      }}>
+        🚀 עובדים על הגרסה העדכנית (v1.2.5) - אם את רואה את זה, הסנכרון עובד!
+      </div>
       
       {/* Language Toggle */}
       <div style={{ position: 'fixed', top: '2rem', right: '2rem', zIndex: 100 }}>

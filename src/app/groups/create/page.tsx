@@ -18,6 +18,7 @@ export default function CreateGroupPage() {
   const [maxMems, setMaxMems] = useState('5');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDetailsPref, setShowDetailsPref] = useState('both');
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -35,7 +36,9 @@ export default function CreateGroupPage() {
     }
 
     setIsSubmitting(true);
-    const dateLabel = (createDate && createTime) ? `${createDate} ${createTime}` : (isHe ? 'שעה טרם נקבעה' : 'TBD');
+    const dateLabel = (createDate || createTime) 
+      ? `${createDate}${createDate && createTime ? ' ' : ''}${createTime}` 
+      : (isHe ? 'טרם נקבע' : 'TBD');
 
     // 1. Insert Group
     const { data: group, error: groupError } = await supabase
@@ -43,7 +46,7 @@ export default function CreateGroupPage() {
       .insert([{
         title: title || (isHe ? 'קבוצה חדשה' : 'New Group'),
         course: course,
-        description: desc,
+        description: desc + `\n<!-- PREF:${showDetailsPref} -->`,
         session_time: dateLabel, 
         max_capacity: parseInt(maxMems),
         manager_id: currentUser.id
@@ -140,6 +143,18 @@ export default function CreateGroupPage() {
                 </label>
                 <input type="number" min="2" max="10" value={maxMems} onChange={e => setMaxMems(e.target.value)} className="input-field" required />
               </div>
+            </div>
+
+            <div style={{ padding: '1rem', background: 'rgba(0,0,0,0.02)', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.05)' }}>
+              <label style={{ display: 'block', fontWeight: '500', marginBottom: '0.8rem', color: 'var(--text-main)' }}>
+                 {isHe ? 'אילו פרטים אישיים תרצה/י להציג בכרטיסיה של הקבוצה?' : 'What personal details to show on the group card?'}
+              </label>
+              <select className="input-field" value={showDetailsPref} onChange={e => setShowDetailsPref(e.target.value)}>
+                <option value="both">{isHe ? 'שנה וחוג' : 'Major & Year'}</option>
+                <option value="major">{isHe ? 'חוג בלבד' : 'Major Only'}</option>
+                <option value="year">{isHe ? 'שנה בלבד' : 'Year Only'}</option>
+                <option value="none">{isHe ? 'אל תציג פרטים' : 'Do not show details'}</option>
+              </select>
             </div>
 
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: '0.5rem 0' }}>

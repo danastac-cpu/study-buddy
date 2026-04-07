@@ -63,19 +63,34 @@ export default function GroupsBrowserPage() {
         const myEnroll = groupEnrolls.find(e => e.user_id === user?.id);
         const status = myEnroll ? myEnroll.status : 'none';
 
+        let rawDesc = g.description || g.text || g.content || '';
+        let pref = 'both';
+        if (rawDesc.includes('<!-- PREF:')) {
+           const match = rawDesc.match(/<!-- PREF:(.*?) -->/);
+           if (match) pref = match[1];
+           rawDesc = rawDesc.replace(/<!-- PREF:.*?-->/, '').trim();
+        }
+
+        let deg = g.profiles?.degree || g.profiles?.major || '';
+        let yr = g.profiles?.year_of_study || g.profiles?.year || '';
+
+        if (pref === 'none') { deg = ''; yr = ''; }
+        else if (pref === 'major') { yr = ''; }
+        else if (pref === 'year') { deg = ''; }
+
         return {
           id: g.id,
           title: g.title,
           course: g.course,
-          degree: g.profiles?.degree || g.profiles?.major || '',
-          year: g.profiles?.year_of_study || g.profiles?.year || '',
+          degree: deg,
+          year: yr,
           dateStr: g.session_time,
-          description: g.description || g.text || g.content,
+          description: rawDesc,
           manager: g.profiles?.real_first_name || g.profiles?.alias || 'Manager',
           maxMembers: g.max_capacity,
           members: approved,
           waitlist: waiting,
-          joinedStatus: status as any
+          joinedStatus: g.manager_id === user?.id ? 'approved' : status as any
         };
       });
       setGroups(formatted);
@@ -214,8 +229,50 @@ export default function GroupsBrowserPage() {
         </Link>
       </div>
 
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap', background: 'white', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--primary-light)' }}>
+        <div style={{ flex: 1, minWidth: '200px' }}>
+          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--primary-dark)' }}>
+            🔍 {isHe ? 'חיפוש חופשי' : 'Search Groups'}
+          </label>
+          <input 
+            type="text" 
+            className="input-field" 
+            placeholder={isHe ? 'לפי כותרת או קורס...' : 'Search by title or course...'} 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <div style={{ width: '180px' }}>
+          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--primary-dark)' }}>
+            🎓 {isHe ? 'סינון לפי חוג' : 'Filter by Major'}
+          </label>
+          <select className="input-field" value={filterMajor} onChange={(e) => setFilterMajor(e.target.value)}>
+            <option value="All">{isHe ? 'הכל' : 'All'}</option>
+            <option value="Medicine">{isHe ? 'רפואה' : 'Medicine'}</option>
+            <option value="Nursing">{isHe ? 'סיעוד' : 'Nursing'}</option>
+            <option value="Pharmacy">{isHe ? 'רוקחות' : 'Pharmacy'}</option>
+            <option value="Tzameret">{isHe ? 'צמרת' : 'Tzameret'}</option>
+          </select>
+        </div>
+        <div style={{ width: '120px' }}>
+          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--primary-dark)' }}>
+            🗓️ {isHe ? 'שנה' : 'Year'}
+          </label>
+          <select className="input-field" value={filterYear} onChange={(e) => setFilterYear(e.target.value)}>
+            <option value="All">{isHe ? 'הכל' : 'All'}</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+          </select>
+        </div>
+      </div>
+
       {/* No Anonymity Warning */}
-      <div style={{ background: 'rgba(255, 152, 0, 0.1)', border: '2px dashed #ff9800', padding: '1rem', borderRadius: '8px', marginBottom: '2rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+      <div style={{ background: 'rgba(255, 152, 0, 0.05)', border: '1px solid #ff9800', padding: '1rem', borderRadius: '8px', marginBottom: '2rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
         <span style={{ fontSize: '1.5rem' }}>⚠️</span>
         <p style={{ margin: 0, color: 'var(--text-main)', fontSize: '0.9rem', fontWeight: '500' }}>
            {isHe ? 'כאן כל החברים מזוהים בשמם המלא ופרטיהם האישיים ליצירת סביבת לימודים מקצועית ואמינה.' : 'No Anonymity Here! Creating or joining a study group exposes your Real Name and Actual Details for an effective study environment.'}
@@ -223,7 +280,14 @@ export default function GroupsBrowserPage() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
-        {groups.map((group) => {
+        {groups
+          .filter(g => {
+            const matchesSearch = g.title.toLowerCase().includes(searchQuery.toLowerCase()) || g.course.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesMajor = filterMajor === 'All' || g.degree === filterMajor;
+            const matchesYear = filterYear === 'All' || g.year === `year${filterYear}` || g.year === filterYear;
+            return matchesSearch && matchesMajor && matchesYear;
+          })
+          .map((group) => {
           const isFull = group.members.length >= group.maxMembers;
           
           let actionLabel = '';
@@ -254,12 +318,16 @@ export default function GroupsBrowserPage() {
                 )}
               </div>
               
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
-                <span style={{ background: 'var(--primary-light)', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600' }}>📚 {group.course}</span>
-                <span style={{ background: 'var(--primary-light)', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600' }}>🎓 {group.degree}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '1rem' }}>
+                <p style={{ margin: 0, fontSize: '0.95rem' }}><strong>{isHe ? 'קורס:' : 'Course:'}</strong> {group.course}</p>
+                {group.year && <p style={{ margin: 0, fontSize: '0.95rem' }}><strong>{isHe ? 'שנת לימוד:' : 'Year of Study:'}</strong> {String(group.year).replace('year', '')}</p>}
+                {group.degree && <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>🎓 {group.degree}</p>}
               </div>
 
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0', marginBottom: '1rem' }}>{group.description}</p>
+              <div style={{ marginBottom: '1.2rem' }}>
+                <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', color: 'var(--primary-dark)' }}>{isHe ? 'מה תלמדו? תאר/י את מטרת הקבוצה:' : 'What will you learn? Describe the group purpose:'}</h4>
+                <p style={{ color: 'var(--text-main)', fontSize: '0.95rem', margin: 0, lineHeight: '1.5', background: 'rgba(138, 99, 210, 0.03)', padding: '0.8rem', borderRadius: '8px' }}>{group.description}</p>
+              </div>
               
               <div style={{ background: 'var(--background-bg)', padding: '1rem', borderRadius: 'var(--radius-sm)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
                 <p style={{ margin: '0 0 0.5rem 0' }}><strong>👑 {isHe ? 'מנהל:' : 'Manager:'}</strong> {group.manager}</p>

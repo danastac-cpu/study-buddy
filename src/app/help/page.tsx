@@ -256,6 +256,27 @@ export default function HelpCenterPage() {
                   <div style={{ width: '100px' }}></div> // Spacer
                 )}
                 
+                {/* Status Messages */}
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                  {req.isOwn && req.status === 'pending' && (
+                    <div style={{ padding: '0.6rem 1rem', background: 'rgba(255, 152, 0, 0.1)', borderRadius: '12px', border: '1px solid #ff9800', color: '#e65100', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                      {isHe ? 'נרשמו לעזור לך! מחכים לאישור שלך.' : "Someone signed up to help! Waiting for your approval."}
+                    </div>
+                  )}
+                  
+                  {!req.isOwn && req.status === 'pending' && (
+                    <div style={{ padding: '0.6rem 1rem', background: 'rgba(138, 99, 210, 0.08)', borderRadius: '12px', border: '1px solid var(--primary-light)', color: 'var(--primary-dark)', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                      {isHe ? 'נרשמת לעזור, מחכים לאישור המשתמש השני' : 'Registered to help, waiting for approval'}
+                    </div>
+                  )}
+                  
+                  {req.status === 'offered' && (
+                    <span style={{ fontSize: '0.9rem', color: '#4CAF50', fontWeight: 'bold' }}>
+                      {isHe ? 'העזרה אושרה! הצ׳אט פעיל' : 'Help Approved! Chat is active'}
+                    </span>
+                  )}
+                </div>
+
                 {!req.isOwn && req.status === 'open' && (
                   <button 
                     onClick={() => handleOfferHelpClick(req.id)}
@@ -264,18 +285,6 @@ export default function HelpCenterPage() {
                   >
                     {isHe ? 'הצע/י עזרה' : 'Offer Help'}
                   </button>
-                )}
-                
-                {req.status === 'pending' && (
-                  <div style={{ padding: '0.6rem 1rem', background: 'rgba(138, 99, 210, 0.08)', borderRadius: '12px', border: '1px solid var(--primary-light)', color: 'var(--primary-dark)', fontWeight: 'bold', fontSize: '0.9rem' }}>
-                    {isHe ? 'נרשמת לעזור, מחכים לאישור המשתמש השני' : 'Registered to help, waiting for approval'}
-                  </div>
-                )}
-                
-                {req.status === 'offered' && (
-                  <span style={{ fontSize: '0.9rem', color: '#ff9800', fontWeight: 'bold' }}>
-                    {isHe ? 'התקבלה הצעה!' : 'Offer Received!'}
-                  </span>
                 )}
               </div>
 

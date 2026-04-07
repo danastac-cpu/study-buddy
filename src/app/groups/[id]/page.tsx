@@ -35,6 +35,7 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
   const [savedTopic, setSavedTopic] = useState('');
   const [savedCourse, setSavedCourse] = useState('');
   const [savedTimeStr, setSavedTimeStr] = useState('');
+  const [savedManagerId, setSavedManagerId] = useState('');
   const [isEditingTime, setIsEditingTime] = useState(false);
   const [editTimeValue, setEditTimeValue] = useState('');
 
@@ -56,10 +57,11 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
     const fetchGroupDetails = async () => {
       const { data, error } = await supabase.from('study_groups').select('*').eq('id', roomId).single();
       if (!error && data) {
-        setSavedTopic(data.topic);
-        setSavedTimeStr(data.date_str);
-        setEditTimeValue(data.date_str);
-        setSavedCourse(data.course || data.course_name || 'Study Group');
+        setSavedTopic(data.title || data.topic);
+        setSavedTimeStr(data.session_time || data.date_str || '');
+        setEditTimeValue(data.session_time || data.date_str || '');
+        setSavedCourse(data.course || 'Study Group');
+        setSavedManagerId(data.manager_id);
       }
     };
 
@@ -128,7 +130,7 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
   }, [messages]);
 
   const handleSaveTime = async () => {
-    const { error } = await supabase.from('study_groups').update({ date_str: editTimeValue }).eq('id', roomId);
+    const { error } = await supabase.from('study_groups').update({ session_time: editTimeValue }).eq('id', roomId);
     if (!error) {
       setSavedTimeStr(editTimeValue);
       setIsEditingTime(false);
@@ -154,31 +156,43 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
     }
   };
 
-  const handleCloseGroup = () => {
-    if(confirm(isHe ? 'האם למפגש כבר קרה? סגירת הקבוצה תסיר אותה מהפיד הציבורי.' : 'Did the meeting already happen? Closing will remove it from the public feed.')) {
-      const existing = localStorage.getItem('studyBuddyNewGroups');
-      if (existing) {
-        const parsed = JSON.parse(existing);
-        const updated = parsed.map((g: any) => {
-          if (g.id === roomId) return { ...g, status: 'closed' };
-          return g;
-        });
-        localStorage.setItem('studyBuddyNewGroups', JSON.stringify(updated));
+  const handleCloseGroup = async () => {
+    if (userId !== savedManagerId) {
+      alert(isHe ? 'רק מנהל הקבוצה יכול לסגור אותה.' : 'Only the group manager can close it.');
+      return;
+    }
+    if(confirm(isHe ? 'סיימתם ללמוד? סביבת הלימוד תיסגר והקבוצה תוסר מהרשימות.' : 'Finished learning? The study environment will close and the group will be removed.')) {
+      // Manual cascade delete
+      await supabase.from('group_enrollments').delete().eq('group_id', roomId);
+      await supabase.from('group_messages').delete().eq('room_id', roomId);
+      
+      const { error } = await supabase.from('study_groups').delete().eq('id', roomId);
+      if (error) {
+        alert('Error: ' + error.message);
+      } else {
+        alert(isHe ? 'הקבוצה נסגרה בהצלחה! ✨' : 'Group closed successfully! ✨');
+        router.push('/groups');
       }
-      alert(isHe ? 'הקבוצה נסגרה והוסרה מהפיד!' : 'Group closed and removed from feed!');
-      router.push('/groups');
     }
   };
 
-  const handleDeleteGroup = () => {
-    if(confirm(isHe ? 'האם את/ה בטוח/ה שברצונך למחוק קבוצה זו לצמיתות?' : 'Are you sure you want to delete this group permanently?')) {
-      const existing = localStorage.getItem('studyBuddyNewGroups');
-      if (existing) {
-        const parsed = JSON.parse(existing);
-        const filtered = parsed.filter((g: any) => g.id !== roomId);
-        localStorage.setItem('studyBuddyNewGroups', JSON.stringify(filtered));
+  const handleDeleteGroup = async () => {
+    if (userId !== savedManagerId) {
+      alert(isHe ? 'רק מנהל הקבוצה יכול למחוק אותה.' : 'Only the group manager can delete it.');
+      return;
+    }
+    if(confirm(isHe ? 'בטוח/ה שברצונך למחוק את הקבוצה לצמיתות?' : 'Are you sure you want to delete this group permanently?')) {
+      // Manual cascade delete
+      await supabase.from('group_enrollments').delete().eq('group_id', roomId);
+      await supabase.from('group_messages').delete().eq('room_id', roomId);
+
+      const { error } = await supabase.from('study_groups').delete().eq('id', roomId);
+      if (error) {
+        alert('Error: ' + error.message);
+      } else {
+        alert(isHe ? 'הקבוצה נמחקה בהצלחה!' : 'Group deleted successfully!');
+        router.push('/groups');
       }
-      router.push('/groups');
     }
   };
 
@@ -204,14 +218,34 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                 🗓️ 
                 {isEditingTime ? (
-                  <div style={{ display: 'flex', gap: '0.4rem' }}>
-                    <input type="text" className="input-field" value={editTimeValue} onChange={(e) => setEditTimeValue(e.target.value)} style={{ padding: '0.2rem', fontSize: '0.8rem' }} />
-                    <button onClick={handleSaveTime} className="btn-primary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }}>Ok</button>
+                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', background: 'white', padding: '0.5rem', borderRadius: '8px', boxShadow: 'var(--shadow-sm)' }}>
+                    <input type="date" className="input-field" 
+                           defaultValue={(savedTimeStr === 'טרם נקבע' || !savedTimeStr.includes('-')) ? '' : savedTimeStr.split(' ')[0]} 
+                           onChange={(e) => {
+                             const date = e.target.value;
+                             const time = editTimeValue.includes(':') ? editTimeValue.split(' ')[1] : '10:00';
+                             setEditTimeValue(`${date} ${time}`);
+                           }}
+                           style={{ padding: '0.4rem', fontSize: '0.9rem', width: '130px' }} />
+                    <input type="time" className="input-field" 
+                           defaultValue={(savedTimeStr === 'טרם נקבע' || !savedTimeStr.includes(':')) ? '' : savedTimeStr.split(' ')[1]} 
+                           onChange={(e) => {
+                             const time = e.target.value;
+                             const date = editTimeValue.includes('-') ? editTimeValue.split(' ')[0] : new Date().toISOString().split('T')[0];
+                             setEditTimeValue(`${date} ${time}`);
+                           }}
+                           style={{ padding: '0.4rem', fontSize: '0.9rem', width: '90px' }} />
+                    <div style={{ display: 'flex', gap: '0.3rem', width: '100%' }}>
+                      <button onClick={handleSaveTime} className="btn-primary" style={{ flex: 1, padding: '0.3rem', fontSize: '0.8rem' }}>שמור</button>
+                      <button onClick={() => setIsEditingTime(false)} className="btn-secondary" style={{ flex: 1, padding: '0.3rem', fontSize: '0.8rem' }}>ביטול</button>
+                    </div>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span>{savedTimeStr}</span>
-                    <button onClick={() => setIsEditingTime(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem' }} title={isHe ? "ערוך מועד" : "Edit Time"}>✏️</button>
+                    <span style={{ fontWeight: '500' }}>{savedTimeStr || (isHe ? 'טרם נקבע' : 'TBD')}</span>
+                    {userId === savedManagerId && (
+                      <button onClick={() => setIsEditingTime(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem' }} title={isHe ? "ערוך מועד" : "Edit Time"}>✏️</button>
+                    )}
                   </div>
                 )}
               </div>

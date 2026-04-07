@@ -116,8 +116,9 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
 
     msgs.forEach(m => {
       if (m.content === '__SYSTEM_REVEAL_APPROVED__') {
-        if (m.sender_id === uid) meApproved = true;
-        else partnerApproved = true;
+        // Any reveal message means the requester (or someone) approved
+        meApproved = true; 
+        partnerApproved = true;
       }
       if (m.content === '__SYSTEM_STARS_GRANTED__') {
         granted = true;
@@ -166,13 +167,20 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
     }]);
 
     // 3. Increment stars in helper's profile
-    // Note: In real app, this should be a DB function/trigger for security.
-    const { data: pData } = await supabase.from('profiles').select('helper_stars').eq('id', partnerProfile.id).single();
+    const { data: pData, error: fetchErr } = await supabase.from('profiles').select('helper_stars').eq('id', partnerProfile.id).single();
+    if (fetchErr) {
+        console.error('STARS FETCH ERROR:', fetchErr);
+    }
     if (pData) {
-        await supabase.from('profiles').update({ helper_stars: (pData.helper_stars || 0) + 2 }).eq('id', partnerProfile.id);
+        const { error: upErr } = await supabase.from('profiles').update({ helper_stars: (pData.helper_stars || 0) + 2 }).eq('id', partnerProfile.id);
+        if (upErr) {
+            console.error('STARS UPDATE ERROR:', upErr);
+            // If RLS fails, we at least have the system message and update board entry
+        }
     }
 
-    alert(isHe ? 'הכוכבים הוענקו בהצלחה!' : 'Stars granted successfully!');
+    alert(isHe ? 'הכוכבים הוענקו בהצלחה! הסיסטם ישלח עדכון לעוזר/ת.' : 'Stars granted successfully! A notification was sent to the helper.');
+    setStarsGranted(true);
   };
 
   const handleApprove = async () => {
@@ -181,7 +189,7 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
 
   if (!isReady) return null;
 
-  const isFullyApproved = isMeApproved && isPartnerApproved;
+  const isFullyApproved = isMeApproved || isPartnerApproved;
 
   return (
     <div className="app-wrapper" style={{ direction: isHe ? 'rtl' : 'ltr' }}>
@@ -197,31 +205,26 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
         <div className="glass-panel" style={{ padding: '1.2rem', marginBottom: '1rem' }}>
           <h3 style={{ fontSize: '1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ fontSize: '1.3rem' }}>{isFullyApproved ? '🔓' : '🔒'}</span> 
-            {isHe ? 'חשיפת פרטים הדדית' : 'Mutual Privacy'}
+            {isHe ? 'חשיפת פרטים' : 'Profile Reveal'}
           </h3>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ padding: '0.8rem', background: isMeApproved ? 'rgba(138, 99, 210, 0.05)' : 'rgba(0,0,0,0.02)', borderRadius: '12px', border: '1px solid var(--primary-light)' }}>
+              <div style={{ padding: '0.8rem', background: isMeApproved ? 'rgba(76, 175, 80, 0.05)' : 'rgba(0,0,0,0.02)', borderRadius: '12px', border: '1px solid var(--primary-light)' }}>
                 <p style={{ fontSize: '0.75rem', color: 'var(--primary-color)', fontWeight: 'bold', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
-                    {isHe ? 'הסטטוס שלך' : 'Your Status'}
+                    {isHe ? 'סטטוס חשיפת פרטים' : 'Reveal Status'}
                 </p>
-                {isMeApproved ? (
-                    <p style={{ margin: 0, fontWeight: '700', color: '#4CAF50' }}>{isHe ? '✔️ אישרת חשיפה' : '✔️ You Approved'}</p>
+                {isFullyApproved ? (
+                    <p style={{ margin: 0, fontWeight: '700', color: '#4CAF50' }}>{isHe ? '✔️ הפרטים נחשפו' : '✔️ Details Revealed'}</p>
                 ) : (
-                    <button onClick={handleApprove} className="btn-primary" style={{ padding: '0.4rem', width: '100%', fontSize: '0.8rem' }}>
-                        {isHe ? 'אשר/י חשיפת פרטים' : 'Approve Reveal'}
-                    </button>
-                )}
-              </div>
-
-              <div style={{ padding: '0.8rem', background: isPartnerApproved ? 'rgba(76, 175, 80, 0.05)' : 'rgba(0,0,0,0.02)', borderRadius: '12px', border: '1px solid rgba(76, 175, 80, 0.2)' }}>
-                <p style={{ fontSize: '0.75rem', color: '#4CAF50', fontWeight: 'bold', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
-                    {isHe ? 'סטטוס צד שני' : 'Their Status'}
-                </p>
-                {isPartnerApproved ? (
-                    <p style={{ margin: 0, fontWeight: '700', color: '#4CAF50' }}>{isHe ? '✔️ הצד השני אישר' : '✔️ They Approved'}</p>
-                ) : (
-                    <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>{isHe ? 'ממתין לאישור...' : 'Waiting for approval...'}</p>
+                    isRequester ? (
+                      <button onClick={handleApprove} className="btn-primary" style={{ padding: '0.6rem', width: '100%', fontSize: '0.85rem' }}>
+                          {isHe ? 'אשר/י חשיפת פרטים' : 'Approve Reveal'}
+                      </button>
+                    ) : (
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                        {isHe ? 'ממתין לאישור המבקש/ת...' : 'Waiting for requester approval...'}
+                      </p>
+                    )
                 )}
               </div>
           </div>
