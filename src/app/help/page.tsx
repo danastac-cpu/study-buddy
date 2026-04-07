@@ -18,6 +18,9 @@ export default function HelpCenterPage() {
   const [requests, setRequests] = useState<any[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   
+  const [filterMajor, setFilterMajor] = useState('All');
+  const [filterYear, setFilterYear] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
   useEffect(() => {
     const user_id_temp = userId;
     const fetchData = async () => {
@@ -167,6 +170,44 @@ export default function HelpCenterPage() {
           </h1>
         </header>
 
+        {/* Filters */}
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap', background: 'white', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--primary-light)' }}>
+          <div style={{ flex: 1, minWidth: '200px' }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--primary-dark)' }}>
+              🔍 {isHe ? 'חיפוש חופשי' : 'Search Help'}
+            </label>
+            <input 
+              type="text" 
+              className="input-field" 
+              placeholder={isHe ? 'חיפוש לפי קורס...' : 'Search by course...'} 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <div style={{ width: '180px' }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--primary-dark)' }}>
+              🎓 {isHe ? 'סינון לפי חוג' : 'Filter by Major'}
+            </label>
+            <select className="input-field" value={filterMajor} onChange={(e) => setFilterMajor(e.target.value)}>
+              <option value="All">{isHe ? 'הכל' : 'All'}</option>
+              {Object.entries(t.degrees).map(([k, v]) => (
+                <option key={k} value={k}>{v as string}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ width: '140px' }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--primary-dark)' }}>
+              🗓️ {isHe ? 'שנה' : 'Year'}
+            </label>
+            <select className="input-field" value={filterYear} onChange={(e) => setFilterYear(e.target.value)}>
+              <option value="All">{isHe ? 'הכל' : 'All'}</option>
+              {Object.entries(t.years).map(([k, v]) => (
+                <option key={k} value={k}>{v as string}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         {/* Anonymity Banner */}
         <div style={{ background: 'rgba(76, 175, 80, 0.08)', border: '1px solid rgba(76, 175, 80, 0.2)', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <span style={{ fontSize: '1.5rem' }}>🔒</span>
@@ -179,7 +220,14 @@ export default function HelpCenterPage() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           
-          {requests.map((req) => (
+          {requests
+            .filter(r => {
+              const matchesSearch = r.course.toLowerCase().includes(searchQuery.toLowerCase());
+              const matchesMajor = filterMajor === 'All' || r.degree === filterMajor;
+              const matchesYear = filterYear === 'All' || r.year === filterYear || r.year === `year${filterYear}`;
+              return matchesSearch && matchesMajor && matchesYear;
+            })
+            .map((req) => (
             <div 
               key={req.id} 
               className="glass-card" 

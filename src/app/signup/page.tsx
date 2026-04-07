@@ -243,11 +243,11 @@ export default function SignupPage() {
                 <div style={{ display: 'flex', gap: '0.8rem' }}>
                   <select className="input-field" value={program} onChange={e => setProgram(e.target.value)}>
                     <option value="" disabled>{isHe ? 'תואר' : 'Degree'}</option>
-                    {Object.entries(t.degrees).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                    {Object.entries(t.degrees).map(([k, v]) => <option key={k} value={k}>{v as string}</option>)}
                   </select>
                   <select className="input-field" value={year} onChange={e => setYear(e.target.value)}>
                     <option value="" disabled>{isHe ? 'שנה' : 'Year'}</option>
-                    {Object.entries(t.years).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                    {Object.entries(t.years).map(([k, v]) => <option key={k} value={k}>{v as string}</option>)}
                   </select>
                 </div>
               </div>

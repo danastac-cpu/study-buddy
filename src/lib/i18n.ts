@@ -35,7 +35,10 @@ export const translations = {
       Medicine: 'רפואה',
       Tzameret: 'צמרת',
       Dentistry: 'רפואת שיניים',
-      Binah: 'בינה'
+      Binah: 'בינה',
+      OT: 'ריפוי בעיסוק',
+      Pisga: 'פסגה',
+      CommDisorders: 'הפרעות בתקשורת'
     },
     filters: {
       all_majors: 'כל החוגים',
@@ -73,11 +76,14 @@ export const translations = {
     degrees: {
       Pharmacy: 'Pharmacy',
       Nursing: 'Nursing',
-      MedScience: 'Med Science',
+      MedScience: 'Medical Sciences',
       Medicine: 'Medicine',
       Tzameret: 'Tzameret',
       Dentistry: 'Dentistry',
-      Binah: 'Binah'
+      Binah: 'Binah',
+      OT: 'Occupational Therapy',
+      Pisga: 'Pisga',
+      CommDisorders: 'Comm. Disorders'
     },
     filters: {
       all_majors: 'All Majors',

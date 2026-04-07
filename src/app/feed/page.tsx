@@ -183,7 +183,7 @@ export default function FeedPage() {
         content: text,
         show_details: showReplyDetails
       }])
-      .select('*, profiles(alias, avatar_base, degree, year)')
+      .select('*, profiles(*)')
       .single();
 
     if (error && error.message.includes('foreign key constraint')) {
@@ -412,15 +412,6 @@ export default function FeedPage() {
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto', paddingTop: '2rem', paddingBottom: '4rem', direction: isHe ? 'rtl' : 'ltr' }}>
-      
-      {/* DEBUG BANNER - COMFIRM SYNC */}
-      <div style={{ 
-          background: '#8A63D2', color: 'white', padding: '10px', textAlign: 'center', 
-          borderRadius: '8px', marginBottom: '20px', fontWeight: 'bold', fontSize: '1.2rem',
-          boxShadow: '0 4px 12px rgba(138, 99, 210, 0.3)', border: '2px solid white'
-      }}>
-        🚀 עובדים על הגרסה העדכנית (v1.2.5) - אם את רואה את זה, הסנכרון עובד!
-      </div>
       
       {/* Language Toggle */}
       <div style={{ position: 'fixed', top: '2rem', right: '2rem', zIndex: 100 }}>

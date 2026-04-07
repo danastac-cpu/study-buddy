@@ -126,25 +126,33 @@ export default function GroupsBrowserPage() {
     if (group.joinedStatus !== 'none') {
       const confirmLeave = confirm(isHe ? 'האם אתה מעוניין לעזוב את קבוצת הלמידה?' : 'Are you sure you want to leave this study group?');
       if (confirmLeave) {
-        // 1. Delete enrollment
-        await supabase.from('group_enrollments').delete().eq('group_id', groupId).eq('user_id', currentUser.id);
-        
-        // 2. If I was 'approved', promote first 'waiting' if exists
-        if (group.joinedStatus === 'approved' && group.waitlist.length > 0) {
-            const nextInLine = group.waitlist[0];
-            await supabase.from('group_enrollments').update({ status: 'approved' }).eq('group_id', groupId).eq('user_id', nextInLine.id);
-            
-            // 3. Notify them via 'updates' table
-            await supabase.from('updates').insert([{
-              user_id: nextInLine.id,
-              type: 'waiting-list-open',
-              title_he: 'התפנה לך מקום! 🎊',
-              title_en: 'A spot opened up! 🎊',
-              content_he: `מקום התפנה בקבוצה "${group.title}". הצטרפת אוטומטית!`,
-              content_en: `A spot is available in "${group.title}". You've been added!`,
-              group_id: group.id
-            }]);
+        // 1. Check if I'm the manager
+        const { data: groupData } = await supabase.from('study_groups').select('manager_id').eq('id', groupId).single();
+        const isManager = groupData?.manager_id === currentUser.id;
+
+        if (isManager) {
+          const otherMembers = group.members.filter(m => m.id !== currentUser.id);
+          if (otherMembers.length === 0) {
+            // Delete group if empty
+            await supabase.from('study_groups').delete().eq('id', groupId);
+          } else {
+            // Transfer ownership to next member
+            const nextManager = otherMembers[0];
+            await supabase.from('study_groups').update({ manager_id: nextManager.id }).eq('id', groupId);
+            // Delete my enrollment
+            await supabase.from('group_enrollments').delete().eq('group_id', groupId).eq('user_id', currentUser.id);
+          }
+        } else {
+          // Just leave
+          await supabase.from('group_enrollments').delete().eq('group_id', groupId).eq('user_id', currentUser.id);
+          
+          // promote next in line if I was approved
+          if (group.joinedStatus === 'approved' && group.waitlist.length > 0) {
+              const nextInLine = group.waitlist[0];
+              await supabase.from('group_enrollments').update({ status: 'approved' }).eq('group_id', groupId).eq('user_id', nextInLine.id);
+          }
         }
+        
         fetchGroups();
       }
       return;
@@ -249,10 +257,9 @@ export default function GroupsBrowserPage() {
           </label>
           <select className="input-field" value={filterMajor} onChange={(e) => setFilterMajor(e.target.value)}>
             <option value="All">{isHe ? 'הכל' : 'All'}</option>
-            <option value="Medicine">{isHe ? 'רפואה' : 'Medicine'}</option>
-            <option value="Nursing">{isHe ? 'סיעוד' : 'Nursing'}</option>
-            <option value="Pharmacy">{isHe ? 'רוקחות' : 'Pharmacy'}</option>
-            <option value="Tzameret">{isHe ? 'צמרת' : 'Tzameret'}</option>
+            {Object.entries(t.degrees).map(([k, v]) => (
+              <option key={k} value={k}>{v as string}</option>
+            ))}
           </select>
         </div>
         <div style={{ width: '120px' }}>
@@ -261,12 +268,9 @@ export default function GroupsBrowserPage() {
           </label>
           <select className="input-field" value={filterYear} onChange={(e) => setFilterYear(e.target.value)}>
             <option value="All">{isHe ? 'הכל' : 'All'}</option>
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-            <option value="6">6</option>
+            {Object.entries(t.years).map(([k, v]) => (
+              <option key={k} value={k}>{v as string}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -340,7 +344,9 @@ export default function GroupsBrowserPage() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: '600' }}>{group.dateStr}</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: '600' }}>
+                  {(group.dateStr && group.dateStr !== 'TBD' && group.dateStr !== 'טרם נקבע') ? group.dateStr : ''}
+                </span>
                 <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
                   {group.joinedStatus === 'approved' ? (
                     <>
