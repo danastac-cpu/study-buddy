@@ -38,6 +38,8 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
   const [savedManagerId, setSavedManagerId] = useState('');
   const [isEditingTime, setIsEditingTime] = useState(false);
   const [editTimeValue, setEditTimeValue] = useState('');
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -105,25 +107,7 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
     };
   }, [roomId]);
 
-  // Presence Effect
-  useEffect(() => {
-    if (!userId || !roomId) return;
- 
-    const pChannel = supabase.channel(`presence_${roomId}`, {
-      config: { presence: { key: userId } }
-    })
-    .on('presence', { event: 'sync' }, () => {
-      const state = pChannel.presenceState();
-      setOnlineUsers(state);
-    })
-    .subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        await pChannel.track({ user_id: userId, user_name: userName });
-      }
-    });
- 
-    return () => { supabase.removeChannel(pChannel); };
-  }, [roomId, userId, userName]);
+  // Presence logic removed for privacy
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -137,22 +121,66 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userId) return;
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${roomId}/${fileName}`;
+
+      const { data, error } = await supabase.storage
+        .from('chat-attachments')
+        .upload(filePath, file);
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('chat-attachments')
+        .getPublicUrl(filePath);
+
+      // Send as a special message
+      const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt?.toLowerCase() || '');
+      const content = isImage ? `__MEDIA_IMAGE__:${publicUrl}` : `__MEDIA_FILE__:${file.name}|${publicUrl}`;
+
+      await supabase.from('messages').insert([{
+        room_id: roomId,
+        sender_id: userId,
+        sender_name: userName,
+        content: content
+      }]);
+
+    } catch (err) {
+      console.error('Upload error:', err);
+      alert('Failed to upload file.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !userId) return;
 
-    const tmpMsg = newMessage;
+    let content = newMessage;
+    if (replyTo) {
+      content = `> [REPLY:${replyTo.sender_name}]: ${replyTo.content}\n\n${newMessage}`;
+    }
+
     setNewMessage('');
+    setReplyTo(null);
     
     const { error } = await supabase.from('messages').insert([{
       room_id: roomId,
       sender_id: userId,
       sender_name: userName,
-      content: tmpMsg
+      content: content
     }]);
 
     if(error) {
-      setMessages(prev => [...prev, { id: Date.now().toString(), sender_name: userName, content: tmpMsg, created_at: new Date().toISOString(), sender_id: userId, room_id: roomId }]);
+      setMessages(prev => [...prev, { id: Date.now().toString(), sender_name: userName, content: content, created_at: new Date().toISOString(), sender_id: userId, room_id: roomId }]);
     }
   };
 
@@ -256,7 +284,6 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
         
         <h3 style={{ fontSize: '1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           {isHe ? 'חברי הקבוצה' : 'Group Members'}
-          <span style={{ fontSize: '0.7rem', background: '#e8f5e9', color: '#2e7d32', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>{isHe ? '🟢 מחובר' : '🟢 Online'}</span>
         </h3>
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {members.map((member) => (
@@ -265,9 +292,6 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
                 <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary-color)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem' }}>
                   {member.profiles?.avatar_base ? '👤' : (member.profiles?.alias?.charAt(0).toUpperCase() || '?')}
                 </div>
-                {onlineUsers[member.user_id] && (
-                  <div style={{ position: 'absolute', bottom: 0, right: 0, width: '10px', height: '10px', background: '#4CAF50', borderRadius: '50%', border: '2px solid white' }}></div>
-                )}
               </div>
               <div>
                 <span style={{ fontWeight: '500', display: 'block', fontSize: '0.9rem' }}>
@@ -329,23 +353,84 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
           )}
           {messages.map((msg, idx) => {
             const isMe = msg.sender_id === userId;
+            const isReply = msg.content.startsWith('> [REPLY:');
+            let displayContent = msg.content;
+            let replyData = null;
+
+            if (isReply) {
+              const match = msg.content.match(/^> \[REPLY:(.*?)\]: ([\s\S]*?)\n\n/);
+              if (match) {
+                replyData = { name: match[1], content: match[2] };
+                displayContent = msg.content.replace(/^> \[REPLY:.*?\]: .*?\n\n/, '');
+              }
+            }
+
             return (
-              <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? (isHe ? 'flex-start' : 'flex-end') : (isHe ? 'flex-end' : 'flex-start'), maxWidth: '100%' }}>
+              <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? (isHe ? 'flex-start' : 'flex-end') : (isHe ? 'flex-end' : 'flex-start'), maxWidth: '100%', position: 'relative' }} className="message-container">
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.2rem', margin: '0 0.5rem' }}>
                   {msg.sender_name} • {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
                 <div style={{ 
                   background: isMe ? 'var(--primary-color)' : 'white', 
                   color: isMe ? 'white' : 'var(--text-main)',
-                  padding: '1rem', 
+                  padding: '0.8rem 1rem', 
                   borderRadius: 'var(--radius-md)', 
                   borderTopLeftRadius: isMe && isHe ? '16px' : (isMe ? 0 : '16px'),
                   borderTopRightRadius: isMe && isHe ? 0 : (isMe ? '16px' : 0),
                   boxShadow: 'var(--shadow-sm)',
-                  maxWidth: '70%',
-                  textAlign: isHe ? 'right' : 'left'
+                  maxWidth: '85%',
+                  textAlign: isHe ? 'right' : 'left',
+                  position: 'relative'
                 }}>
-                  {msg.content}
+                  {replyData && (
+                    <div style={{ 
+                      background: 'rgba(0,0,0,0.05)', 
+                      borderLeft: isHe ? 'none' : '4px solid var(--primary-light)', 
+                      borderRight: isHe ? '4px solid var(--primary-light)' : 'none',
+                      padding: '0.5rem', 
+                      borderRadius: '4px', 
+                      marginBottom: '0.5rem', 
+                      fontSize: '0.85rem' 
+                    }}>
+                      <div style={{ fontWeight: 'bold', fontSize: '0.75rem', marginBottom: '0.2rem', color: isMe ? 'white' : 'var(--primary-color)' }}>{replyData.name}</div>
+                      <div style={{ opacity: 0.8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{replyData.content.startsWith('__MEDIA_') ? (isHe ? '📎 קובץ/תמונה' : '📎 Media/File') : replyData.content}</div>
+                    </div>
+                  )}
+                  
+                  {displayContent.startsWith('__MEDIA_IMAGE__:') ? (
+                    <img 
+                      src={displayContent.split('__MEDIA_IMAGE__:')[1]} 
+                      alt="Uploaded" 
+                      style={{ maxWidth: '100%', borderRadius: '8px', cursor: 'pointer' }} 
+                      onClick={() => window.open(displayContent.split('__MEDIA_IMAGE__:')[1], '_blank')}
+                    />
+                  ) : displayContent.startsWith('__MEDIA_FILE__:') ? (
+                    (() => {
+                      const [name, url] = displayContent.split('__MEDIA_FILE__:')[1].split('|');
+                      return (
+                        <a href={url} target="_blank" rel="noreferrer" style={{ color: isMe ? 'white' : 'var(--primary-color)', textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          📄 {name}
+                        </a>
+                      );
+                    })()
+                  ) : (
+                    <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{displayContent}</div>
+                  )}
+                  
+                  {/* Reply Button (Visible on hover) */}
+                  <button 
+                    onClick={() => setReplyTo(msg)}
+                    style={{ 
+                      position: 'absolute', top: '50%', transform: 'translateY(-50%)',
+                      [isMe ? (isHe ? 'right' : 'left') : (isHe ? 'left' : 'right')]: '-40px',
+                      background: 'white', border: '1px solid var(--primary-light)', borderRadius: '50%',
+                      width: '30px', height: '30px', cursor: 'pointer', fontSize: '1rem',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)'
+                    }}
+                    title={isHe ? 'השב' : 'Reply'}
+                  >
+                    ↩️
+                  </button>
                 </div>
               </div>
             );
@@ -355,16 +440,30 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
 
         {/* Chat Input */}
         <div style={{ padding: '2rem', borderTop: '1px solid rgba(138, 99, 210, 0.1)', background: 'var(--background-bg)' }}>
-          <form onSubmit={sendMessage} style={{ display: 'flex', gap: '1rem' }}>
+          {replyTo && (
+            <div style={{ background: 'white', padding: '0.8rem 1rem', borderRadius: '12px 12px 0 0', border: '1px solid var(--primary-light)', borderBottom: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ borderLeft: isHe ? 'none' : '4px solid var(--primary-color)', borderRight: isHe ? '4px solid var(--primary-color)' : 'none', paddingLeft: '0.8rem', paddingRight: '0.8rem' }}>
+                 <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>{isHe ? 'משיב ל- ' : 'Replying to '}{replyTo.sender_name}</p>
+                 <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>{replyTo.content}</p>
+              </div>
+              <button onClick={() => setReplyTo(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
+            </div>
+          )}
+          <form onSubmit={sendMessage} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <label style={{ cursor: isUploading ? 'not-allowed' : 'pointer', fontSize: '1.5rem', opacity: isUploading ? 0.5 : 1 }}>
+              📎
+              <input type="file" style={{ display: 'none' }} onChange={handleFileUpload} disabled={isUploading} />
+            </label>
             <input 
               type="text" 
               className="input-field" 
-              placeholder={isHe ? "הקלידו הודעה לקבוצה..." : "Type a message to your group..."} 
-              style={{ flex: 1 }} 
+              placeholder={isUploading ? (isHe ? "מעלה קובץ..." : "Uploading...") : (isHe ? "הקלידו הודעה לקבוצה..." : "Type a message to your group...")} 
+              style={{ flex: 1, borderRadius: replyTo ? '0 0 12px 12px' : undefined }} 
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
+              disabled={isUploading}
             />
-            <button type="submit" className="btn-primary" style={{ padding: '0 2rem' }}>
+            <button type="submit" className="btn-primary" style={{ padding: '0 2rem' }} disabled={isUploading}>
               {isHe ? 'שלח' : 'Send'}
             </button>
           </form>

@@ -39,6 +39,8 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
   const [profile, setProfile] = useState<any>(null);
   const [starsGranted, setStarsGranted] = useState(false);
   const [requestDetails, setRequestDetails] = useState<any>(null);
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -106,7 +108,7 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
         }
       ).subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    // Presence logic removed for privacy
   }, [unwrappedId, userId, isHe]);
 
   const processSystemMessages = (msgs: Message[], uid: string) => {
@@ -134,19 +136,65 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const roomId = `private_${unwrappedId}`;
+    if (!file || !userId) return;
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${roomId}/${fileName}`;
+
+      const { data, error } = await supabase.storage
+        .from('chat-attachments')
+        .upload(filePath, file);
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('chat-attachments')
+        .getPublicUrl(filePath);
+
+      // Send as a special message
+      const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt?.toLowerCase() || '');
+      const content = isImage ? `__MEDIA_IMAGE__:${publicUrl}` : `__MEDIA_FILE__:${file.name}|${publicUrl}`;
+
+      await supabase.from('messages').insert([{
+        room_id: roomId,
+        sender_id: userId,
+        sender_name: userName,
+        content: content
+      }]);
+
+    } catch (err) {
+      console.error('Upload error:', err);
+      alert('Failed to upload file.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const sendMessage = async (e: React.FormEvent, contentOverride?: string) => {
     if (e) e.preventDefault();
-    const content = contentOverride || newMessage;
-    if (!content.trim() || !userId) return;
+    const contentText = contentOverride || newMessage;
+    if (!contentText.trim() || !userId) return;
+
+    let finalContent = contentText;
+    if (replyTo && !contentOverride) {
+      finalContent = `> [REPLY:${replyTo.sender_name}]: ${replyTo.content}\n\n${contentText}`;
+    }
 
     if (!contentOverride) setNewMessage('');
+    setReplyTo(null);
     const roomId = `private_${unwrappedId}`;
 
     await supabase.from('messages').insert([{
       room_id: roomId,
       sender_id: userId,
       sender_name: contentOverride ? 'System' : userName,
-      content: content
+      content: finalContent
     }]);
   };
 
@@ -295,23 +343,83 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
           {messages.map((msg, idx) => {
             if (msg.content.startsWith('__SYSTEM_')) return null;
             const isMe = msg.sender_id === userId;
+            const isReply = msg.content.startsWith('> [REPLY:');
+            let displayContent = msg.content;
+            let replyData = null;
+
+            if (isReply) {
+              const match = msg.content.match(/^> \[REPLY:(.*?)\]: ([\s\S]*?)\n\n/);
+              if (match) {
+                replyData = { name: match[1], content: match[2] };
+                displayContent = msg.content.replace(/^> \[REPLY:.*?\]: .*?\n\n/, '');
+              }
+            }
+
             return (
-              <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? (isHe ? 'flex-start' : 'flex-end') : (isHe ? 'flex-end' : 'flex-start'), maxWidth: '100%' }}>
+              <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? (isHe ? 'flex-start' : 'flex-end') : (isHe ? 'flex-end' : 'flex-start'), maxWidth: '100%', position: 'relative' }}>
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.2rem', margin: '0 0.5rem' }}>
                   {msg.sender_name} • {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
                 <div style={{
                   background: isMe ? 'var(--primary-color)' : 'white',
                   color: isMe ? 'white' : 'var(--text-main)',
-                  padding: '1rem',
+                  padding: '0.8rem 1rem',
                   borderRadius: 'var(--radius-md)',
                   borderTopLeftRadius: isMe && isHe ? '16px' : (isMe ? 0 : '16px'),
                   borderTopRightRadius: isMe && isHe ? 0 : (isMe ? '16px' : 0),
                   boxShadow: 'var(--shadow-sm)',
-                  maxWidth: '70%',
-                  textAlign: isHe ? 'right' : 'left'
+                  maxWidth: '85%',
+                  textAlign: isHe ? 'right' : 'left',
+                  position: 'relative'
                 }}>
-                  {msg.content}
+                  {replyData && (
+                    <div style={{ 
+                      background: 'rgba(0,0,0,0.05)', 
+                      borderLeft: isHe ? 'none' : '4px solid var(--primary-light)', 
+                      borderRight: isHe ? '4px solid var(--primary-light)' : 'none',
+                      padding: '0.5rem', 
+                      borderRadius: '4px', 
+                      marginBottom: '0.5rem', 
+                      fontSize: '0.85rem' 
+                    }}>
+                      <div style={{ fontWeight: 'bold', fontSize: '0.75rem', marginBottom: '0.2rem', color: isMe ? 'white' : 'var(--primary-color)' }}>{replyData.name}</div>
+                      <div style={{ opacity: 0.8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{replyData.content.startsWith('__MEDIA_') ? (isHe ? '📎 קובץ/תמונה' : '📎 Media/File') : replyData.content}</div>
+                    </div>
+                  )}
+                  {displayContent.startsWith('__MEDIA_IMAGE__:') ? (
+                    <img 
+                      src={displayContent.split('__MEDIA_IMAGE__:')[1]} 
+                      alt="Uploaded" 
+                      style={{ maxWidth: '100%', borderRadius: '8px', cursor: 'pointer' }} 
+                      onClick={() => window.open(displayContent.split('__MEDIA_IMAGE__:')[1], '_blank')}
+                    />
+                  ) : displayContent.startsWith('__MEDIA_FILE__:') ? (
+                    (() => {
+                      const [name, url] = displayContent.split('__MEDIA_FILE__:')[1].split('|');
+                      return (
+                        <a href={url} target="_blank" rel="noreferrer" style={{ color: isMe ? 'white' : 'var(--primary-color)', textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          📄 {name}
+                        </a>
+                      );
+                    })()
+                  ) : (
+                    <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{displayContent}</div>
+                  )}
+                  
+                  {/* Reply Button */}
+                  <button 
+                    onClick={() => setReplyTo(msg)}
+                    style={{ 
+                      position: 'absolute', top: '50%', transform: 'translateY(-50%)',
+                      [isMe ? (isHe ? 'right' : 'left') : (isHe ? 'left' : 'right')]: '-40px',
+                      background: 'white', border: '1px solid var(--primary-light)', borderRadius: '50%',
+                      width: '30px', height: '30px', cursor: 'pointer', fontSize: '1rem',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)'
+                    }}
+                    title={isHe ? 'השב' : 'Reply'}
+                  >
+                    ↩️
+                  </button>
                 </div>
               </div>
             );
@@ -321,17 +429,31 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
 
         {/* Chat Input */}
         <div style={{ padding: '2rem', borderTop: '1px solid rgba(138, 99, 210, 0.1)', background: 'var(--background-bg)' }}>
-          <form onSubmit={(e) => sendMessage(e)} style={{ display: 'flex', gap: '1rem' }}>
+          {replyTo && (
+            <div style={{ background: 'white', padding: '0.8rem 1rem', borderRadius: '12px 12px 0 0', border: '1px solid var(--primary-light)', borderBottom: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ borderLeft: isHe ? 'none' : '4px solid var(--primary-color)', borderRight: isHe ? '4px solid var(--primary-color)' : 'none', paddingLeft: '0.8rem', paddingRight: '0.8rem' }}>
+                 <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>{isHe ? 'משיב ל- ' : 'Replying to '}{replyTo.sender_name}</p>
+                 <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>{replyTo.content}</p>
+              </div>
+              <button onClick={() => setReplyTo(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
+            </div>
+          )}
+          <form onSubmit={(e) => sendMessage(e)} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <label style={{ cursor: isUploading ? 'not-allowed' : 'pointer', fontSize: '1.5rem', opacity: isUploading ? 0.5 : 1 }}>
+              📎
+              <input type="file" style={{ display: 'none' }} onChange={handleFileUpload} disabled={isUploading} />
+            </label>
             <input
               id="chat-input"
               type="text"
               className="input-field"
-              placeholder={isHe ? "הקלידו הודעה..." : "Type a message..."}
-              style={{ flex: 1 }}
+              placeholder={isUploading ? (isHe ? "מעלה קובץ..." : "Uploading...") : (isHe ? "הקלידו הודעה..." : "Type a message...")}
+              style={{ flex: 1, borderRadius: replyTo ? '0 0 12px 12px' : undefined }}
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
+              disabled={isUploading}
             />
-            <button type="submit" className="btn-primary" style={{ padding: '0 2rem' }}>
+            <button type="submit" className="btn-primary" style={{ padding: '0 2rem' }} disabled={isUploading}>
               {isHe ? 'שלח' : 'Send'}
             </button>
           </form>

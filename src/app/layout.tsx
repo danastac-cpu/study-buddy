@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   description: 'Academic help and structured study groups platform.',
 };
 
+import InAppNotifications from '@/components/InAppNotifications';
+
 export default function RootLayout({
   children,
 }: {
@@ -14,6 +16,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
+        <InAppNotifications />
         {children}
       </body>
     </html>

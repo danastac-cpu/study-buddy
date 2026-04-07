@@ -143,6 +143,31 @@ export default function DashboardPage() {
         setUserLatestPost(null);
       }
 
+      // 6. Check for Past Due Help Requests (Reschedule Logic)
+      const now = new Date();
+      const pastDue = helpData?.filter(h => {
+        if (!h.date_str || h.status !== 'open') return false;
+        const reqDate = new Date(h.date_str.split(' ')[0]);
+        return reqDate < now && !updatesData?.some(u => u.type === 'reschedule' && u.request_id === h.id);
+      });
+
+      if (pastDue && pastDue.length > 0) {
+        for (const req of pastDue) {
+          await supabase.from('updates').insert([{
+            user_id: authData.user.id,
+            type: 'reschedule',
+            request_id: req.id,
+            title_he: 'האם תרצה לעדכן את בקשת העזרה?',
+            title_en: 'Would you like to reschedule your request?',
+            content_he: `התאריך שקבעת לבקשה ב-${req.course_name} עבר. תרצה לעדכן או למחוק?`,
+            content_en: `The date for your ${req.course_name} request has passed. Update or delete?`
+          }]);
+        }
+        // Refetch updates to show them immediately
+        const { data: newUpdates } = await supabase.from('updates').select('*').eq('user_id', authData.user.id).order('created_at', { ascending: false });
+        if (newUpdates) setNotifications(newUpdates.map(u => ({ id: u.id, type: u.type, titleHe: u.title_he, titleEn: u.title_en, contentHe: u.content_he, contentEn: u.content_en, requestId: u.request_id, groupId: u.group_id })));
+      }
+
       setIsLoading(false);
     };
 
@@ -366,10 +391,10 @@ export default function DashboardPage() {
             ) : (profile && profile.avatar_base) ? (
               <div style={{ position: 'relative', cursor: 'pointer' }} onClick={openEditModal} title={isHe ? 'עריכת אווטר' : 'Edit Avatar'}>
                 <ScienceAvatar
-                  avatarId={profile.avatar_base.replace('.png', '').replace('virus1', 'virus')}
-                  avatarFile={profile.avatar_base.replace('virus1', 'virus').includes('.png') ? profile.avatar_base.replace('virus1', 'virus') : `${profile.avatar_base.replace('virus1', 'virus')}.png`}
-                  accessory={ACCESSORIES.find((a: any) => a.id === profile.avatar_accessory || a.file === profile.avatar_accessory) || null}
-                  backgroundColor={profile.avatar_bg || '#8A63D2'}
+                  avatarId={profile?.avatar_base?.replace('.png', '').replace('virus1', 'virus') || 'brain'}
+                  avatarFile={profile?.avatar_base?.replace('virus1', 'virus').includes('.png') ? profile.avatar_base.replace('virus1', 'virus') : `${profile?.avatar_base?.replace('virus1', 'virus') || 'brain'}.png`}
+                  accessory={ACCESSORIES.find((a: any) => a.id === profile?.avatar_accessory || a.file === profile?.avatar_accessory) || null}
+                  backgroundColor={profile?.avatar_bg || '#8A63D2'}
                   size={80}
                 />
                 <div style={{ position: 'absolute', bottom: '-5px', right: '-5px', background: 'white', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.2)', border: '1px solid var(--primary-light)' }}>
@@ -385,11 +410,11 @@ export default function DashboardPage() {
               </p>
               {profile?.real_first_name && (
                 <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  {profile.real_first_name} {profile.real_last_name}
+                  {profile.real_first_name} {profile?.real_last_name || ''}
                 </p>
               )}
               <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                {isHe ? 'חוג' : 'Degree'}: {profile?.degree === 'Tzameret' ? (isHe ? 'צמרת' : 'Tzameret') : profile?.degree} • {isHe ? 'שנה' : 'Year'}: {profile?.year === 'year4' ? (isHe ? 'ד\'' : '4') : profile?.year}
+                {isHe ? 'חוג' : 'Degree'}: {profile?.degree === 'Tzameret' ? (isHe ? 'צמרת' : 'Tzameret') : (profile?.degree || '')} • {isHe ? 'שנה' : 'Year'}: {profile?.year === 'year4' ? (isHe ? 'ד\'' : '4') : (profile?.year_of_study || profile?.year || '')}
               </p>
             </div>
           </div>

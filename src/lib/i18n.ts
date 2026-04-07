@@ -37,8 +37,7 @@ export const translations = {
       Dentistry: 'רפואת שיניים',
       Binah: 'בינה',
       OT: 'ריפוי בעיסוק',
-      Pisga: 'פסגה',
-      CommDisorders: 'הפרעות בתקשורת'
+      Pisga: 'פסגה'
     },
     filters: {
       all_majors: 'כל החוגים',
@@ -82,8 +81,7 @@ export const translations = {
       Dentistry: 'Dentistry',
       Binah: 'Binah',
       OT: 'Occupational Therapy',
-      Pisga: 'Pisga',
-      CommDisorders: 'Comm. Disorders'
+      Pisga: 'Pisga'
     },
     filters: {
       all_majors: 'All Majors',
