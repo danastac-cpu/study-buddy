@@ -100,24 +100,24 @@ export default function DashboardPage() {
 
       setAcceptedGroups(allGroups.map(g => ({
         id: g.id,
-        title: isHe ? `קבוצה: ${g.topic}` : `Group: ${g.topic}`,
-        details: g.date_str
+        title: isHe ? `קבוצה: ${g.title}` : `Group: ${g.title}`,
+        details: g.session_time
       })));
 
       // 4. Fetch Active Help Sessions (1-on-1 Chats)
       const { data: helpData } = await supabase
         .from('help_requests')
-        .select('*, profiles:user_id(alias, avatar_base, avatar_bg), helper_profile:helper_id(alias, avatar_base, avatar_bg)')
-        .or(`user_id.eq.${authData.user.id},helper_id.eq.${authData.user.id}`)
+        .select('*, profiles:profiles!requester_id(alias, avatar_base, avatar_bg), helper_profile:profiles!helper_id(alias, avatar_base, avatar_bg)')
+        .or(`requester_id.eq.${authData.user.id},helper_id.eq.${authData.user.id}`)
         .not('status', 'eq', 'resolved');
  
       if (helpData) {
         setActiveHelpSessions(helpData.map(h => {
-          const isRequester = h.user_id === authData.user.id;
+          const isRequester = h.requester_id === authData.user.id;
           const otherParty = isRequester ? h.helper_profile : h.profiles;
           return {
             id: h.id,
-            topic: h.course_name,
+            topic: h.course,
             otherName: otherParty?.alias || (isHe ? 'ממתין לעוזר...' : 'Waiting for helper...'),
             isRequester
           };
@@ -135,7 +135,7 @@ export default function DashboardPage() {
       
       if (latestPost) {
         setUserLatestPost({
-          text: latestPost.text,
+          text: latestPost.content || latestPost.text,
           commentCount: latestPost.feed_comments?.length || 0,
           id: latestPost.id
         });

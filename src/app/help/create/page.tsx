@@ -42,13 +42,14 @@ export default function CreateHelpRequestPage() {
     const durationLabel = durationVal === '15m' ? '15' : 
                          durationVal === '30m' ? '30' : '45';
 
+    const finalTopic = (urgency === 'this_week' && targetDate) ? `${content} \n[Date: ${targetDate}]` : content;
+
     const { error } = await supabase.from('help_requests').insert([{
-        user_id: currentUser.id,
+        requester_id: currentUser.id,
         course: course,
-        description: content,
-        urgency: urgency,
-        duration: durationLabel,
-        target_date: urgency === 'this_week' ? targetDate : (urgency === 'today' ? new Date().toISOString() : null),
+        topic: finalTopic,
+        urgency_level: urgency,
+        duration_mins: durationLabel,
         status: 'open'
     }]);
 

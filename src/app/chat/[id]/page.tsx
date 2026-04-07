@@ -59,16 +59,16 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
       }
 
       // 3. Fetch Help Request context
-      const { data: req } = await supabase.from('help_requests').select('*, profiles(*)').eq('id', unwrappedId).single();
+      const { data: req } = await supabase.from('help_requests').select('*, profiles:profiles!requester_id(*)').eq('id', unwrappedId).single();
       if (req) {
         setRequestDetails(req);
         
         // Determine role
-        const amIRequester = req.user_id === uid;
+        const amIRequester = req.requester_id === uid;
         setIsRequester(amIRequester || explicitRole === 'requester');
 
         // Fetch Partner Profile
-        const partnerId = amIRequester ? (req.helper_id || searchParams.get('helper')) : req.user_id;
+        const partnerId = amIRequester ? (req.helper_id || searchParams.get('helper')) : req.requester_id;
         if (partnerId) {
           const { data: pProf } = await supabase.from('profiles').select('*').eq('id', partnerId).single();
           if (pProf) {

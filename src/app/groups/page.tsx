@@ -44,7 +44,7 @@ export default function GroupsBrowserPage() {
     // 1. Fetch All Groups
     const { data: groupsData, error: groupsError } = await supabase
       .from('study_groups')
-      .select('*, profiles(alias, degree, year, real_first_name)')
+      .select('*, profiles:profiles!manager_id(alias, degree, year, year_of_study, real_first_name)')
       .order('created_at', { ascending: false });
 
     if (groupsError) return;
@@ -52,7 +52,7 @@ export default function GroupsBrowserPage() {
     // 2. Fetch All Enrollments with profiles
     const { data: enrollData } = await supabase
       .from('group_enrollments')
-      .select('*, profiles(real_first_name, alias)');
+      .select('*, profiles:profiles!user_id(real_first_name, alias)');
 
     if (groupsData) {
       const formatted = groupsData.map((g: any) => {
@@ -65,14 +65,14 @@ export default function GroupsBrowserPage() {
 
         return {
           id: g.id,
-          title: g.topic,
+          title: g.title,
           course: g.course,
-          degree: g.profiles?.degree || '',
-          year: g.profiles?.year || '',
-          dateStr: g.date || g.date_str, // Support both during migration
-          description: g.description || g.text, // Support both during migration
+          degree: g.profiles?.degree || g.profiles?.major || '',
+          year: g.profiles?.year_of_study || g.profiles?.year || '',
+          dateStr: g.session_time,
+          description: g.description || g.text || g.content,
           manager: g.profiles?.real_first_name || g.profiles?.alias || 'Manager',
-          maxMembers: g.max_members,
+          maxMembers: g.max_capacity,
           members: approved,
           waitlist: waiting,
           joinedStatus: status as any

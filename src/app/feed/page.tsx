@@ -57,16 +57,20 @@ export default function FeedPage() {
           setCurrentUser({ ...authData.user, profile: prof });
       }
 
-      let { data: postsData, error: postsError } = await supabase
+      const { data: rawPosts, error: postsError } = await supabase
         .from('feed_posts')
-        .select('*, profiles(alias, avatar_base, avatar_accessory, avatar_bg, degree, year)')
-        .order('created_at', { ascending: false });
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
 
-      // Fallback: If join fails or returns empty but table might have data
-      if (postsError || !postsData || postsData.length === 0) {
-        const { data: rawPosts } = await supabase.from('feed_posts').select('*').order('created_at', { ascending: false }).limit(20);
-        if (rawPosts && rawPosts.length > 0) {
-            postsData = rawPosts;
+      let postsData = rawPosts || [];
+      let profilesMap: Record<string, any> = {};
+
+      if (postsData.length > 0) {
+        const userIds = [...new Set(postsData.map(p => p.user_id))].filter(Boolean);
+        if (userIds.length > 0) {
+          const { data: profs } = await supabase.from('profiles').select('*').in('id', userIds);
+          if (profs) profs.forEach(pr => { profilesMap[pr.id] = pr; });
         }
       }
 
@@ -74,29 +78,46 @@ export default function FeedPage() {
         const formattedPosts = await Promise.all(postsData.map(async (p) => {
           const { data: commentsData } = await supabase
             .from('feed_comments')
-            .select('*, profiles(alias, avatar_base, degree, year)')
+            .select('*')
             .eq('post_id', p.id)
             .order('created_at', { ascending: true });
 
+          // Fetch profiles for comments
+          let commentsFormatted: any[] = [];
+          if (commentsData && commentsData.length > 0) {
+              const cUserIds = [...new Set(commentsData.map(c => c.user_id))].filter(Boolean);
+              let cProfilesMap: Record<string, any> = {};
+              if (cUserIds.length > 0) {
+                  const { data: cProfs } = await supabase.from('profiles').select('*').in('id', cUserIds);
+                  if (cProfs) cProfs.forEach(pr => { cProfilesMap[pr.id] = pr; });
+              }
+              commentsFormatted = commentsData.map(c => {
+                 const cp = cProfilesMap[c.user_id] || {};
+                 return {
+                    id: c.id,
+                    author: cp.alias || 'Guest',
+                    degree: '',
+                    avatarBase: cp.avatar_base || 'brain',
+                    text: c.content || c.text,
+                    user_id: c.user_id
+                 };
+              });
+          }
+
+          const pProfile = profilesMap[p.user_id] || {};
+
           return {
             id: p.id,
-            author: p.profiles?.alias || 'Guest',
-            details: p.show_details ? `${p.profiles?.degree || ''} • ${isHe ? 'שנה' : 'Year'} ${p.profiles?.year || ''}` : '',
-            text: p.text,
+            author: pProfile.alias || 'Guest',
+            details: p.show_details ? `${pProfile.degree || ''} • ${isHe ? 'שנה' : 'Year'} ${pProfile.year_of_study || pProfile.year || ''}` : '',
+            text: p.content || p.text,
             time: new Date(p.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             fileUrl: p.file_url,
-            avatarBase: p.profiles?.avatar_base || 'brain',
-            avatarAccessory: p.profiles?.avatar_accessory === '(None)' ? null : p.profiles?.avatar_accessory,
-            avatarColor: p.profiles?.avatar_bg || 'var(--primary-color)',
+            avatarBase: pProfile.avatar_base || 'brain',
+            avatarAccessory: pProfile.avatar_accessory === '(None)' ? null : pProfile.avatar_accessory,
+            avatarColor: pProfile.avatar_bg || 'var(--primary-color)',
             user_id: p.user_id,
-            comments: (commentsData || []).map(c => ({
-              id: c.id,
-              author: c.profiles?.alias || 'Guest',
-              degree: c.show_details ? `${c.profiles?.degree || ''} • ${isHe ? 'שנה' : 'Year'} ${c.profiles?.year || ''}` : '',
-              avatarBase: c.profiles?.avatar_base || 'brain',
-              text: c.text,
-              user_id: c.user_id
-            }))
+            comments: commentsFormatted
           };
         }));
         setPosts(formattedPosts);
@@ -128,15 +149,18 @@ export default function FeedPage() {
 
   const handleReplySubmit = async (postId: string) => {
     const text = replyText[postId];
-    if (!text?.trim() || !currentUser) return;
+    if (!text?.trim()) return;
+    if (!currentUser) {
+        alert(isHe ? 'אנא התחבר כדי להגיב' : 'Please log in to comment');
+        return;
+    }
 
     const { data: comment, error } = await supabase
       .from('feed_comments')
       .insert([{
         post_id: postId,
         user_id: currentUser.id,
-        text: text,
-        show_details: showReplyDetails
+        content: text
       }])
       .select('*, profiles(alias, avatar_base, degree, year)')
       .single();
@@ -147,7 +171,7 @@ export default function FeedPage() {
         author: comment.profiles?.alias || 'Guest',
         degree: comment.show_details ? `${comment.profiles?.degree || ''} • ${isHe ? 'שנה' : 'Year'} ${comment.profiles?.year || ''}` : '',
         avatarBase: comment.profiles?.avatar_base || 'brain',
-        text: comment.text,
+        text: comment.content || comment.text,
         user_id: comment.user_id
       };
 
@@ -195,17 +219,20 @@ export default function FeedPage() {
       }
     }
 
-    if (!currentUser) return;
+    if (!currentUser) {
+        alert(isHe ? 'אנא התחבר כדי לפרסם' : 'Please log in to post');
+        setIsPosting(false);
+        return;
+    }
 
     const { data: post, error: dbError } = await supabase
       .from('feed_posts')
       .insert([{
         user_id: currentUser.id,
-        text: newPostText,
+        content: newPostText,
         file_url: fileUrl,
         show_details: showDetails,
-        degree: currentUser.profile?.degree || 'Student',
-        year: currentUser.profile?.year || '1'
+        // (Removed 'major' and 'year' as they belong in 'profiles' only, linked relationally)
       }])
       .select('*, profiles(alias, avatar_base, avatar_accessory, avatar_bg, degree, year)')
       .single();
@@ -215,7 +242,7 @@ export default function FeedPage() {
         id: post.id,
         author: post.profiles?.alias || 'Guest',
         details: post.show_details ? `${post.profiles?.degree || ''} • ${isHe ? 'שנה' : 'Year'} ${post.profiles?.year || ''}` : '',
-        text: post.text,
+        text: post.content || post.text,
         time: isHe ? 'ממש עכשיו' : 'Just now',
         fileUrl: post.file_url,
         avatarBase: post.profiles?.avatar_base || 'brain',
@@ -252,7 +279,7 @@ export default function FeedPage() {
     const { error: dbError } = await supabase
       .from('feed_posts')
       .update({ 
-        text: editPostText, 
+        content: editPostText, 
         file_url: fileUrl || undefined
       })
       .eq('id', postId);
@@ -281,7 +308,7 @@ export default function FeedPage() {
   const handleSaveEditComment = async (postId: string, commentId: string) => {
     const { error } = await supabase
       .from('feed_comments')
-      .update({ text: editCommentText })
+      .update({ content: editCommentText })
       .eq('id', commentId);
 
     if (!error) {

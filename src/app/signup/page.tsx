@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { translations } from '@/lib/i18n';
 import { useLanguage } from '@/hooks/useLanguage';
-import { ScienceAvatar, AVATARS, ACCESSORIES, PASTEL_COLORS, Accessory } from '@/components/ScienceAvatar';
+import { ScienceAvatar, AVATARS, ACCESSORIES, PASTEL_COLORS } from '@/components/ScienceAvatar';
 
 const ACCESSORY_CATEGORIES = [
   { key: 'none', label: 'None', labelHe: 'ללא', emoji: '✖️' },
@@ -57,7 +57,7 @@ export default function SignupPage() {
         setIsSaving(true);
         try {
           const p = JSON.parse(pendingStr);
-          const [first, ...lastArr] = p.realName.split(' ');
+          const [first] = p.realName.split(' ');
 
           const { error } = await supabase.from('profiles').upsert([{
             id: authData.user.id,
@@ -135,10 +135,7 @@ export default function SignupPage() {
       fontFamily: "'Inter', sans-serif",
     }}>
       {/* Language toggle */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '900px', margin: '0 auto 1.5rem' }}>
-        <Link href="/" style={{ textDecoration: 'none', color: '#8A63D2', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.9rem' }}>
-           🏠 {isHe ? 'חזרה לדף הבית' : 'Back to Home'}
-        </Link>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', maxWidth: '900px', margin: '0 auto 1.5rem' }}>
         <button
           onClick={() => setLanguage(isHe ? 'en' : 'he')}
           style={{ padding: '0.5rem 1.2rem', borderRadius: '2rem', border: '1px solid #8A63D2', background: 'white', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', color: '#8A63D2' }}
@@ -343,7 +340,7 @@ export default function SignupPage() {
               </div>
             </div>
 
-            {/* Save button */}
+            {/* Save button with Google Icon */}
             {isSaving ? (
               <div style={{ textAlign: 'center', color: '#8A63D2', fontWeight: 600, padding: '1.1rem', background: '#eaddff', borderRadius: '16px' }}>
                 {isHe ? 'שומר את הפרופיל ומתחבר...' : 'Saving profile & logging in...'}
@@ -354,7 +351,7 @@ export default function SignupPage() {
                 className="btn-primary"
                 style={{ width: '100%', padding: '1.1rem', fontSize: '1.1rem', borderRadius: '16px', display: 'flex', gap: '0.8rem', justifyContent: 'center', alignItems: 'center' }}
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ background: 'white', borderRadius: '50%', padding: '2px' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ background: 'white', borderRadius: '4px', padding: '2px' }}>
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
                   <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
                   <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
@@ -363,12 +360,7 @@ export default function SignupPage() {
                 {isHe ? 'הרשמה עם Gmail והמשך' : 'Register with Gmail & Continue'}
               </button>
             )}
-            <div style={{ textAlign: 'center' }}>
-              <Link href="/" style={{ color: '#6B6871', fontSize: '0.85rem', textDecoration: 'underline' }}>
-                {isHe ? 'חזרה לדף הבית' : 'Back to home'}
-              </Link>
-            </div>
-
+            {/* The link under the button is gone as requested */}
           </div>
         </div>
       </div>

@@ -41,11 +41,11 @@ export default function CreateGroupPage() {
     const { data: group, error: groupError } = await supabase
       .from('study_groups')
       .insert([{
-        topic: title || (isHe ? 'קבוצה חדשה' : 'New Group'),
+        title: title || (isHe ? 'קבוצה חדשה' : 'New Group'),
         course: course,
         description: desc,
-        date: dateLabel, // Corrected from date_str
-        max_members: parseInt(maxMems),
+        session_time: dateLabel, 
+        max_capacity: parseInt(maxMems),
         manager_id: currentUser.id
       }])
       .select()

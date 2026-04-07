@@ -26,7 +26,7 @@ export default function HelpCenterPage() {
 
       const { data, error } = await supabase
         .from('help_requests')
-        .select('*, profiles(alias, avatar_base, degree, year)')
+        .select('*, profiles:profiles!requester_id(alias, avatar_base, degree, year, year_of_study)')
         .order('created_at', { ascending: false });
 
       if (!error && data) {
@@ -36,13 +36,13 @@ export default function HelpCenterPage() {
           nickname: r.profiles?.alias || 'Guest',
           degree: r.profiles?.degree || 'Student',
           year: r.profiles?.year || '',
-          content: r.description || r.content, // Support both during migration
+          content: r.topic,
           status: r.status,
-          urgency: r.target_date ? (isHe ? `עד ${r.target_date}` : `Until ${r.target_date}`) : (isHe ? 'פתוח' : 'Open'),
-          duration: r.duration || '', 
+          urgency: r.urgency_level === 'today' ? (isHe ? 'היום!' : 'Today!') : (r.urgency_level === 'this_week' ? (isHe ? 'השבוע' : 'This Week') : (isHe ? 'גמיש' : 'Flexible')),
+          duration: r.duration_mins ? `${r.duration_mins}m` : '', 
           course: r.course || r.course_name, 
-          isOwn: r.user_id === user_id_temp || r.user_id === userData?.user?.id,
-          user_id: r.user_id
+          isOwn: r.requester_id === user_id_temp || r.requester_id === userData?.user?.id,
+          user_id: r.requester_id
         }));
         setRequests(formatted);
       }
@@ -128,7 +128,7 @@ export default function HelpCenterPage() {
   const handleSaveEdit = async (postId: string) => {
     const { error } = await supabase
       .from('help_requests')
-      .update({ content: editContent })
+      .update({ topic: editContent })
       .eq('id', postId);
 
     if (!error) {
