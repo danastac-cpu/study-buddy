@@ -144,14 +144,19 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
     setIsUploading(true);
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
+      const safeName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+      const fileName = `${Date.now()}_${safeName}`;
       const filePath = `${roomId}/${fileName}`;
 
+      console.log('Uploading to chat-attachments bucket:', filePath);
       const { data, error } = await supabase.storage
         .from('chat-attachments')
         .upload(filePath, file);
 
-      if (error) throw error;
+      if (error) {
+        console.error('STORAGE ERROR (chat-attachments):', error);
+        throw error;
+      }
 
       const { data: { publicUrl } } = supabase.storage
         .from('chat-attachments')
@@ -168,9 +173,9 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
         content: content
       }]);
 
-    } catch (err) {
+    } catch (err: any) {
       console.error('Upload error:', err);
-      alert('Failed to upload file.');
+      alert('Failed to upload file: ' + (err.message || 'Unknown error'));
     } finally {
       setIsUploading(false);
     }

@@ -36,139 +36,148 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data: authData } = await supabase.auth.getUser();
-      if (!authData?.user) {
-        router.push('/');
-        return;
-      }
-
-      // 1. Fetch Profile
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', authData.user.id)
-        .single();
-      
-      if (profileData) {
-        setProfile(profileData);
-        // FORCE RESET TOUR FOR TESTING (Using localStorage to prevent re-popups)
-        const tourResetKey = 'studybuddy_tour_reset_v7';
-        if (!localStorage.getItem(tourResetKey)) {
-           setShowTour(true);
-           localStorage.setItem(tourResetKey, 'true');
-        } else if(!profileData.has_completed_tour) {
-           setShowTour(true);
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        if (!authData?.user) {
+          router.push('/');
+          return;
         }
-      }
 
-      // 2. Fetch Updates/Notifications
-      const { data: updatesData } = await supabase
-        .from('updates')
-        .select('*')
-        .eq('user_id', authData.user.id)
-        .order('created_at', { ascending: false });
-      
-      if (updatesData) {
-        setNotifications(updatesData.map(u => ({
-          id: u.id,
-          type: u.type,
-          titleHe: u.title_he,
-          titleEn: u.title_en,
-          contentHe: u.content_he,
-          contentEn: u.content_en,
-          requestId: u.request_id,
-          groupId: u.group_id
+        // 1. Fetch Profile
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authData.user.id)
+          .single();
+
+        if (profileData) {
+          setProfile(profileData);
+          // FORCE RESET TOUR FOR TESTING (Using localStorage to prevent re-popups)
+          const tourResetKey = 'studybuddy_tour_reset_v7';
+          if (!localStorage.getItem(tourResetKey)) {
+            setShowTour(true);
+            localStorage.setItem(tourResetKey, 'true');
+          } else if (!profileData.has_completed_tour) {
+            setShowTour(true);
+          }
+        }
+
+        // 2. Fetch Updates/Notifications
+        const { data: updatesData } = await supabase
+          .from('updates')
+          .select('*')
+          .eq('user_id', authData.user.id)
+          .order('created_at', { ascending: false });
+
+        if (updatesData) {
+          setNotifications(updatesData.map(u => ({
+            id: u.id,
+            type: u.type,
+            titleHe: u.title_he,
+            titleEn: u.title_en,
+            contentHe: u.content_he,
+            contentEn: u.content_en,
+            requestId: u.request_id,
+            groupId: u.group_id
+          })));
+        }
+
+        // 3. Fetch Accepted Groups (Approved Enrollment OR Managed)
+        const { data: enrolled } = await supabase
+          .from('group_enrollments')
+          .select('*, study_groups(*)')
+          .eq('user_id', authData.user.id)
+          .eq('status', 'approved');
+
+        const { data: managed } = await supabase
+          .from('study_groups')
+          .select('*')
+          .eq('manager_id', authData.user.id);
+
+        const allGroups = [
+          ...(enrolled?.map(e => e.study_groups).filter(Boolean) || []),
+          ...(managed || [])
+        ].filter((v, i, a) => v && v.id && a.findIndex(t => t?.id === v.id) === i); // Unique & Safe
+
+        setAcceptedGroups(allGroups.map(g => ({
+          id: g.id,
+          title: isHe ? `קבוצה: ${g.topic}` : `Group: ${g.topic}`,
+          details: g.date_str
         })));
-      }
 
-      // 3. Fetch Accepted Groups (Approved Enrollment OR Managed)
-      const { data: enrolled } = await supabase
-        .from('group_enrollments')
-        .select('*, study_groups(*)')
-        .eq('user_id', authData.user.id)
-        .eq('status', 'approved');
-      
-      const { data: managed } = await supabase
-        .from('study_groups')
-        .select('*')
-        .eq('manager_id', authData.user.id);
+        // 4. Fetch Active Help Sessions (1-on-1 Chats)
+        const { data: helpData } = await supabase
+          .from('help_requests')
+          .select('*, profiles:user_id(alias, avatar_base, avatar_bg), helper_profile:helper_id(alias, avatar_base, avatar_bg)')
+          .or(`user_id.eq.${authData.user.id},helper_id.eq.${authData.user.id}`)
+          .not('status', 'eq', 'resolved');
 
-      const allGroups = [
-        ...(enrolled?.map(e => e.study_groups) || []),
-        ...(managed || [])
-      ].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i); // Unique
-
-      setAcceptedGroups(allGroups.map(g => ({
-        id: g.id,
-        title: isHe ? `קבוצה: ${g.topic}` : `Group: ${g.topic}`,
-        details: g.date_str
-      })));
-
-      // 4. Fetch Active Help Sessions (1-on-1 Chats)
-      const { data: helpData } = await supabase
-        .from('help_requests')
-        .select('*, profiles:user_id(alias, avatar_base, avatar_bg), helper_profile:helper_id(alias, avatar_base, avatar_bg)')
-        .or(`user_id.eq.${authData.user.id},helper_id.eq.${authData.user.id}`)
-        .not('status', 'eq', 'resolved');
- 
-      if (helpData) {
-        setActiveHelpSessions(helpData.map(h => {
-          const isRequester = h.user_id === authData.user.id;
-          const otherParty = isRequester ? h.helper_profile : h.profiles;
-          return {
-            id: h.id,
-            topic: h.course_name,
-            otherName: otherParty?.alias || (isHe ? 'ממתין לעוזר...' : 'Waiting for helper...'),
-            isRequester
-          };
-        }));
-      }
-
-      // 5. Fetch User's Latest Feed Post
-      const { data: latestPost } = await supabase
-        .from('feed_posts')
-        .select('*, feed_comments(id)')
-        .eq('user_id', authData.user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-      
-      if (latestPost) {
-        setUserLatestPost({
-          text: latestPost.text,
-          commentCount: latestPost.feed_comments?.length || 0,
-          id: latestPost.id
-        });
-      } else {
-        setUserLatestPost(null);
-      }
-
-      // 6. Check for Past Due Help Requests (Reschedule Logic)
-      const now = new Date();
-      const pastDue = helpData?.filter(h => {
-        if (!h.date_str || h.status !== 'open') return false;
-        const reqDate = new Date(h.date_str.split(' ')[0]);
-        return reqDate < now && !updatesData?.some(u => u.type === 'reschedule' && u.request_id === h.id);
-      });
-
-      if (pastDue && pastDue.length > 0) {
-        for (const req of pastDue) {
-          await supabase.from('updates').insert([{
-            user_id: authData.user.id,
-            type: 'reschedule',
-            request_id: req.id,
-            title_he: 'האם תרצה לעדכן את בקשת העזרה?',
-            title_en: 'Would you like to reschedule your request?',
-            content_he: `התאריך שקבעת לבקשה ב-${req.course_name} עבר. תרצה לעדכן או למחוק?`,
-            content_en: `The date for your ${req.course_name} request has passed. Update or delete?`
-          }]);
+        if (helpData) {
+          setActiveHelpSessions(helpData.map(h => {
+            const isRequester = h.user_id === authData.user.id;
+            const otherParty = isRequester ? h.helper_profile : h.profiles;
+            return {
+              id: h.id,
+              topic: h.course_name,
+              otherName: otherParty?.alias || (isHe ? 'ממתין לעוזר...' : 'Waiting for helper...'),
+              isRequester
+            };
+          }));
         }
-        // Refetch updates to show them immediately
-        const { data: newUpdates } = await supabase.from('updates').select('*').eq('user_id', authData.user.id).order('created_at', { ascending: false });
-        if (newUpdates) setNotifications(newUpdates.map(u => ({ id: u.id, type: u.type, titleHe: u.title_he, titleEn: u.title_en, contentHe: u.content_he, contentEn: u.content_en, requestId: u.request_id, groupId: u.group_id })));
-      }
 
-      setIsLoading(false);
+        // 5. Fetch User's Latest Feed Post
+        const { data: latestPost } = await supabase
+          .from('feed_posts')
+          .select('*, feed_comments(id)')
+          .eq('user_id', authData.user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(); // Better than single() if 0 or 1 expected
+
+        if (latestPost) {
+          setUserLatestPost({
+            text: latestPost.text || latestPost.content,
+            commentCount: latestPost.feed_comments?.length || 0,
+            id: latestPost.id
+          });
+        } else {
+          setUserLatestPost(null);
+        }
+
+        // 6. Check for Past Due Help Requests (Reschedule Logic)
+        const now = new Date();
+        const pastDue = helpData?.filter(h => {
+          if (!h.date_str || h.status !== 'open' || h.date_str === 'TBD') return false;
+          try {
+            const datePart = h.date_str.split(' ')[0];
+            const reqDate = new Date(datePart);
+            if (isNaN(reqDate.getTime())) return false;
+            return reqDate < now && !updatesData?.some(u => u.type === 'reschedule' && u.request_id === h.id);
+          } catch(e) { return false; }
+        });
+
+        if (pastDue && pastDue.length > 0) {
+          for (const req of pastDue) {
+            await supabase.from('updates').insert([{
+              user_id: authData.user.id,
+              type: 'reschedule',
+              request_id: req.id,
+              title_he: 'האם תרצה לעדכן את בקשת העזרה?',
+              title_en: 'Would you like to reschedule your request?',
+              content_he: `התאריך שקבעת לבקשה ב-${req.course_name} עבר. תרצה לעדכן או למחוק?`,
+              content_en: `The date for your ${req.course_name} request has passed. Update or delete?`
+            }]);
+          }
+          // Refetch updates to show them immediately
+          const { data: newUpdates } = await supabase.from('updates').select('*').eq('user_id', authData.user.id).order('created_at', { ascending: false });
+          if (newUpdates) setNotifications(newUpdates.map(u => ({ id: u.id, type: u.type, titleHe: u.title_he, titleEn: u.title_en, contentHe: u.content_he, contentEn: u.content_en, requestId: u.request_id, groupId: u.group_id })));
+        }
+
+        setIsLoading(false);
+      } catch (error) {
+        console.error('FATAL DASHBOARD ERROR:', error);
+        setIsLoading(false);
+      }
     };
 
     fetchData();
@@ -248,7 +257,7 @@ export default function DashboardPage() {
 
   const handleSaveAvatar = async () => {
     if (!profile) return;
-    
+
     const { data: authData } = await supabase.auth.getUser();
     if (authData?.user) {
       const { error } = await supabase.from('profiles').update({
@@ -504,14 +513,14 @@ export default function DashboardPage() {
             </div>
           </div>
         </section>
- 
+
         <section>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
             <h2 style={{ fontSize: '1.8rem', fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive' }}>
               {isHe ? 'מפגשים וצ׳אטים קרובים' : 'Upcoming Sessions & Chats'}
             </h2>
           </div>
- 
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {/* Real Active Groups */}
             {acceptedGroups.map((group, idx) => (
@@ -526,7 +535,7 @@ export default function DashboardPage() {
                 </div>
               </Link>
             ))}
- 
+
             {/* Real Active Help Chats (1-on-1) */}
             {activeHelpSessions.map((session, idx) => (
               <Link key={`help-${idx}`} href={`/chat/${session.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
@@ -544,7 +553,7 @@ export default function DashboardPage() {
                 </div>
               </Link>
             ))}
- 
+
             {acceptedGroups.length === 0 && activeHelpSessions.length === 0 && (
               <div style={{ padding: '2rem', textAlign: 'center', background: 'rgba(0,0,0,0.02)', borderRadius: '16px', border: '1px dashed rgba(0,0,0,0.1)' }}>
                 <p style={{ color: 'var(--text-muted)', margin: 0 }}>
@@ -559,7 +568,7 @@ export default function DashboardPage() {
                   <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(255, 152, 0, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>📢</div>
                   {userLatestPost && userLatestPost.commentCount > 0 && (
                     <div style={{ position: 'absolute', top: '-5px', right: '-5px', background: 'var(--primary-color)', color: 'white', fontSize: '0.8rem', fontWeight: 'bold', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 10px rgba(138, 99, 210, 0.6)' }}>
-                       {userLatestPost.commentCount}
+                      {userLatestPost.commentCount}
                     </div>
                   )}
                 </div>
@@ -569,7 +578,7 @@ export default function DashboardPage() {
                     {isHe ? 'הפוסט שלי בקהילה' : 'My Community Post'}
                   </h3>
                   <p style={{ color: 'var(--text-main)', margin: '0.2rem 0', fontSize: '0.95rem', fontWeight: '500' }}>
-                    {userLatestPost 
+                    {userLatestPost
                       ? (userLatestPost.text.length > 40 ? userLatestPost.text.substring(0, 40) + '...' : userLatestPost.text)
                       : (isHe ? 'עדיין לא פרסמת בפיד. בואו לשתף משהו!' : 'No posts yet. Share something with the community!')}
                   </p>
@@ -587,7 +596,7 @@ export default function DashboardPage() {
         </section>
 
         {/* Notifications / Updates Area */}
-        {notifications.length > 0 && (
+        {notifications?.length > 0 && (
           <section style={{ marginTop: '4rem' }}>
             <h2 style={{ fontSize: '1.8rem', fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive', marginBottom: '1.5rem', color: '#ff9800' }}>
               {isHe ? 'עדכונים חשובים' : 'Important Updates'}

@@ -184,26 +184,28 @@ export default function FeedPage() {
         show_details: showReplyDetails
       }])
       .select('*, profiles(*)')
-      .single();
+      .maybeSingle(); // Switch to maybeSingle to avoid crashes if single() fails
 
     if (error && error.message.includes('foreign key constraint')) {
        // fallback for comment
+       console.warn('REPLY FALLBACK TRIGGERED');
        const fallbackRet = await supabase.from('feed_comments').insert([{
         post_id: postId,
         content: text,
         show_details: showReplyDetails,
         user_id: null
-      }]).select('*').single();
+      }]).select('*').maybeSingle();
       comment = fallbackRet.data;
       error = fallbackRet.error;
     }
 
     if (!error && comment) {
+      const cp = comment.profiles || {};
       const newComment: FeedComment = {
         id: comment.id,
-        author: comment.profiles?.alias || (isHe ? 'סטודנט/ית' : 'Student'),
-        degree: showReplyDetails ? `${comment.profiles?.degree || ''} • ${isHe ? 'שנה' : 'Year'} ${comment.profiles?.year || ''}` : '',
-        avatarBase: comment.profiles?.avatar_base || 'brain',
+        author: cp.alias || (isHe ? 'סטודנט/ית' : 'Student'),
+        degree: showReplyDetails ? `${cp.degree || ''} • ${isHe ? 'שנה' : 'Year'} ${cp.year_of_study || cp.year || ''}` : '',
+        avatarBase: cp.avatar_base || 'brain',
         text: comment.content || comment.text,
         user_id: comment.user_id
       };
@@ -245,10 +247,12 @@ export default function FeedPage() {
 
     let fileUrl = '';
     if (attachedFile) {
-      const fileName = `${Date.now()}-${attachedFile.name}`;
+      const fileName = `${Date.now()}-${attachedFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+      console.log('Uploading to files bucket:', fileName);
       const { data, error } = await supabase.storage.from('files').upload(fileName, attachedFile);
       if (error) {
-        alert('Error: ' + error.message);
+        console.error('STORAGE ERROR (files):', error);
+        alert('File upload failed: ' + error.message);
       } else if (data) {
         const { data: publicData } = supabase.storage.from('files').getPublicUrl(fileName);
         fileUrl = publicData.publicUrl;
