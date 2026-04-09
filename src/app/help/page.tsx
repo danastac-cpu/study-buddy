@@ -34,12 +34,13 @@ export default function HelpCenterPage() {
         id: r.id,
         avatarBase: r.profiles?.avatar_base || 'brain',
         nickname: r.profiles?.alias || 'Guest',
-        degree: r.profiles?.degree || 'Student',
-        year: r.profiles?.year || r.profiles?.year_of_study || '',
+        degree: (t.degrees[r.profiles?.degree as keyof typeof t.degrees] as string) || r.profiles?.degree || 'Student',
+        year: (t.years[r.profiles?.year_of_study as keyof typeof t.years] as string) || (t.years[r.profiles?.year as keyof typeof t.years] as string) || '',
         content: r.topic,
         status: r.status,
-        urgency: r.urgency_level === 'today' ? 'today' : (r.urgency_level === 'this_week' ? 'this_week' : 'flexible'),
-        duration: r.duration_mins || '', 
+        urgency: r.urgency_level === 'today' ? (isHe ? 'היום!' : 'Today!') : (r.urgency_level === 'this_week' ? (isHe ? 'השבוע' : 'This Week') : (isHe ? 'גמיש' : 'Flexible')),
+        urgencyRaw: r.urgency_level,
+        duration: r.duration_mins ? `${r.duration_mins}m` : '', 
         course: r.course || r.course_name, 
         dateStr: r.date_str,
         isOwn: r.requester_id === userData?.user?.id,
@@ -56,6 +57,9 @@ export default function HelpCenterPage() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [isHe]);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState('');
 
   if (!isReady) return null;
 
@@ -86,17 +90,17 @@ export default function HelpCenterPage() {
     }
   };
 
-  const prettyDate = (dateStr: string) => {
-    if (!dateStr || dateStr === 'TBD' || dateStr === 'טרם נקבע') return isHe ? '📅 עדיין לא נקבע' : '📅 Not set';
-    if (dateStr.includes('T') && dateStr.includes('-')) {
-      try {
-        const d = new Date(dateStr);
-        if (!isNaN(d.getTime())) {
-          return `${d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' })}`;
-        }
-      } catch (e) {}
+  const handleStartEdit = (req: any) => {
+    setEditingId(req.id);
+    setEditContent(req.content);
+  };
+
+  const handleSaveEdit = async (postId: string) => {
+    const { error } = await supabase.from('help_requests').update({ topic: editContent }).eq('id', postId);
+    if (!error) {
+        fetchData();
+        setEditingId(null);
     }
-    return dateStr;
   };
 
   return (
@@ -113,29 +117,31 @@ export default function HelpCenterPage() {
           {isHe ? 'מרחב בטוח למציאת עזרה בלימודים.' : 'A safe space to find academic help.'}
         </p>
 
-        <Link href="/help/create" className="btn-primary" style={{ width: '100%', borderRadius: '20px', padding: '1rem', background: 'linear-gradient(135deg, #A78BFA, #8B5CF6)' }}>
-          {isHe ? 'בקשת עזרה חדשה 🙋' : 'Request New Help 🙋'}
-        </Link>
+        <ul style={{ listStyle: 'none', padding: 0 }}>
+          <li style={{ marginBottom: '1rem' }}>
+            <Link href="/help/create" className="btn-primary" style={{ width: '100%', borderRadius: '20px', padding: '1rem', background: 'linear-gradient(135deg, #A78BFA, #8B5CF6)' }}>
+              {isHe ? 'בקשת עזרה חדשה 🙋' : 'Request New Help 🙋'}
+            </Link>
+          </li>
+        </ul>
       </nav>
       
       <main className="main-content" style={{ padding: '2rem' }}>
-        <style>{`
-          @keyframes pulse-red {
-            0% { box-shadow: 0 0 0 0 rgba(255, 118, 118, 0.4); }
-            70% { box-shadow: 0 0 0 15px rgba(255, 118, 118, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(255, 118, 118, 0); }
-          }
-          .pulse-card {
-            animation: pulse-red 2s infinite;
-            border: 2px solid #FFEDED !important;
-          }
-        `}</style>
-
-        <header style={{ marginBottom: '2.5rem' }}>
-          <h1 style={{ fontSize: '2.5rem', color: 'var(--primary-dark)', fontFamily: '"DynaPuff", cursive' }}>
+        <header style={{ marginBottom: '2rem' }}>
+          <h1 style={{ fontSize: '2.5rem', margin: 0, color: 'var(--primary-color)', fontFamily: '"DynaPuff", cursive' }}>
             {isHe ? 'בקשות עזרה' : 'Help Requests'}
           </h1>
         </header>
+
+        {/* Anonymity Banner Restored */}
+        <div style={{ background: 'rgba(76, 175, 80, 0.08)', border: '1px solid rgba(76, 175, 80, 0.2)', padding: '1.5rem', borderRadius: '15px', marginBottom: '2.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <span style={{ fontSize: '2rem' }}>🔒</span>
+          <p style={{ margin: 0, fontSize: '0.95rem', color: '#2E7D32', fontWeight: '600', lineHeight: '1.5' }}>
+              {isHe 
+                ? 'מרכז העזרה הוא מקום בטוח להתייעץ באנונימיות מוחלטת. הפרטים האישיים והשמות שלכם ייחשפו רק ברגע שתחליטו לאשר עזרה ותעברו לצאט פרטי אחד על אחד.' 
+                : 'The Help Center is an anonymous safe space. Your personal details and names will be revealed only when you decide to approve help and start a 1-on-1 private chat.'}
+          </p>
+        </div>
 
         {/* Filters */}
         <div style={{ 
@@ -153,13 +159,13 @@ export default function HelpCenterPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <select className="input-field" style={{ width: '180px', borderRadius: '15px', background: '#F9F7FF' }} value={filterMajor} onChange={(e) => setFilterMajor(e.target.value)}>
+          <select className="input-field" style={{ width: '180px', borderRadius: '15px' }} value={filterMajor} onChange={(e) => setFilterMajor(e.target.value)}>
             <option value="All">{isHe ? 'כל החוגים' : 'All Majors'}</option>
             {Object.entries(t.degrees).map(([k, v]) => (
               <option key={k} value={k}>{v as string}</option>
             ))}
           </select>
-          <select className="input-field" style={{ width: '120px', borderRadius: '15px', background: '#F9F7FF' }} value={filterYear} onChange={(e) => setFilterYear(e.target.value)}>
+          <select className="input-field" style={{ width: '120px', borderRadius: '15px' }} value={filterYear} onChange={(e) => setFilterYear(e.target.value)}>
             <option value="All">{isHe ? 'כל השנים' : 'All Years'}</option>
             {Object.entries(t.years).map(([k, v]) => (
               <option key={k} value={k}>{v as string}</option>
@@ -167,78 +173,91 @@ export default function HelpCenterPage() {
           </select>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           {requests
             .filter(r => {
               const matchesSearch = r.course?.toLowerCase().includes(searchQuery.toLowerCase());
-              const matchesMajor = filterMajor === 'All' || r.degree === filterMajor;
-              const matchesYear = filterYear === 'All' || r.year === filterYear || r.year === `year${filterYear}`;
+              const matchesMajor = filterMajor === 'All' || r.degree === filterMajor || (t.degrees[filterMajor as keyof typeof t.degrees] === r.degree);
+              const matchesYear = filterYear === 'All' || r.year === filterYear || (t.years[filterYear as keyof typeof t.years] === r.year);
               return matchesSearch && matchesMajor && matchesYear;
             })
             .map((req) => (
             <div 
               key={req.id} 
-              className={`glass-card ${req.urgency === 'today' ? 'pulse-card' : ''}`}
+              className="glass-card" 
               style={{ 
-                padding: '2rem', borderRadius: '35px', background: 'white', border: 'none',
-                boxShadow: req.urgency === 'today' ? 'none' : '0 15px 35px rgba(138, 99, 210, 0.08)', 
-                position: 'relative', display: 'flex', flexDirection: 'column', height: '100%'
+                display: 'flex', flexDirection: 'column', padding: '2rem',
+                borderRadius: '35px', border: 'none',
+                boxShadow: req.urgencyRaw === 'today' ? '0 0 20px rgba(244, 67, 54, 0.4)' : '0 15px 35px rgba(138, 99, 210, 0.08)',
+                position: 'relative',
+                border: req.urgencyRaw === 'today' ? '2px solid rgba(244, 67, 54, 0.2)' : 'none'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.2rem' }}>
-                <ScienceAvatar avatarId={req.avatarBase} avatarFile={`${req.avatarBase}.png`} accessory={null} size={55} backgroundColor="#F3F0FF" />
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '900' }}>{req.nickname}</h3>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>
-                    {t.degrees[req.degree as keyof typeof t.degrees] || req.degree}
-                    {req.year && ` • ${t.years[req.year as keyof typeof t.years] || req.year}`}
-                  </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem', marginBottom: '1.2rem' }}>
+                <ScienceAvatar avatarId={req.avatarBase} avatarFile={`${req.avatarBase}.png`} accessory={null} size={65} backgroundColor="#F3F0FF" />
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <p style={{ fontWeight: '900', margin: 0, fontSize: '1.3rem', color: 'var(--primary-dark)' }}>{req.nickname}</p>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: '0.3rem 0 0 0', fontWeight: '800' }}>
+                    {req.degree} • {req.year}
+                  </p>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.2rem', flexWrap: 'wrap' }}>
-                 <span style={{ background: '#F5F3FF', color: 'var(--primary-color)', padding: '0.4rem 0.8rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '900' }}>
-                   📚 {req.course}
-                 </span>
-                 {req.duration && (
-                   <span style={{ background: '#FDF2F8', color: '#DB2777', padding: '0.4rem 0.8rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '900' }}>
-                     🕒 {req.duration}m
-                   </span>
-                 )}
-                 <span style={{ 
-                    background: req.urgency === 'today' ? '#FFEDED' : (req.urgency === 'this_week' ? '#FFFBEB' : '#F0FDF4'), 
-                    color: req.urgency === 'today' ? '#FF7676' : (req.urgency === 'this_week' ? '#B45309' : '#166534'),
-                    padding: '0.4rem 0.8rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '900' 
-                 }}>
-                   {req.urgency === 'today' ? (isHe ? 'היום!' : 'Today!') : (req.urgency === 'this_week' ? (isHe ? 'השבוע' : 'This Week') : (isHe ? 'גמיש' : 'Flexible'))}
-                 </span>
-              </div>
-
               <div style={{ flex: 1, marginBottom: '1.5rem' }}>
-                <p style={{ lineHeight: '1.6', fontSize: '1rem', color: '#444' }}>{req.content}</p>
+                <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '1.2rem', flexWrap: 'wrap' }}>
+                  <span style={{ background: '#F5F3FF', padding: '0.4rem 0.8rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: '900', color: 'var(--primary-color)' }}>
+                    📚 {req.course}
+                  </span>
+                  <span style={{ background: '#F0FDF4', color: '#166534', padding: '0.4rem 0.8rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: '900' }}>
+                    ⏱️ {req.duration}
+                  </span>
+                  <span style={{ 
+                    background: req.urgencyRaw === 'today' ? '#FFEDED' : (req.urgencyRaw === 'this_week' ? '#FFFBEB' : '#F0FDF4'), 
+                    color: req.urgencyRaw === 'today' ? '#CC0000' : (req.urgencyRaw === 'this_week' ? '#B45309' : '#166534'), 
+                    padding: '0.4rem 0.8rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: '900' 
+                  }}>
+                    {req.urgencyRaw === 'today' ? '🚨 ' : '📅 '} {req.urgency}
+                  </span>
+                </div>
+
+                {editingId === req.id ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <textarea className="input-field" rows={4} value={editContent} onChange={(e) => setEditContent(e.target.value)} />
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button onClick={() => handleSaveEdit(req.id)} className="btn-primary" style={{ padding: '0.6rem 1.2rem' }}>{isHe ? 'שמירה' : 'Save'}</button>
+                            <button onClick={() => setEditingId(null)} className="btn-secondary">{isHe ? 'ביטול' : 'Cancel'}</button>
+                        </div>
+                    </div>
+                ) : (
+                    <p style={{ lineHeight: '1.6', margin: 0, fontSize: '1.05rem', color: '#444' }}>{req.content}</p>
+                )}
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #F8F7FF', paddingTop: '1.2rem' }}>
-                 <span style={{ fontSize: '0.8rem', color: '#999', fontWeight: '800' }}>
-                    {prettyDate(req.dateStr)}
-                 </span>
-
-                 <div style={{ display: 'flex', gap: '0.8rem' }}>
-                    {req.isOwn ? (
-                       <>
-                         <button onClick={() => router.push(`/help/edit/${req.id}`)} style={{ color: 'var(--primary-color)', border: 'none', background: 'none', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}>
-                           {isHe ? 'ערוך' : 'Edit'}
-                         </button>
-                         <button onClick={() => handleDeleteRequest(req.id)} style={{ color: '#FF7676', border: 'none', background: 'none', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}>
-                           {isHe ? 'מחק' : 'Delete'}
-                         </button>
-                       </>
-                    ) : req.status === 'open' && (
-                       <button onClick={() => handleOfferHelpClick(req.id)} className="btn-primary" style={{ padding: '0.6rem 1.2rem', borderRadius: '15px', fontSize: '0.9rem' }}>
-                         {isHe ? 'הצע/י עזרה' : 'Offer Help'}
-                       </button>
-                    )}
-                 </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #F3F0FF', paddingTop: '1.2rem' }}>
+                {req.isOwn ? (
+                  <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+                    <button onClick={() => handleStartEdit(req)} style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                        {isHe ? 'ערוך בקשה' : 'Edit'}
+                    </button>
+                    <button onClick={() => handleDeleteRequest(req.id)} style={{ background: 'none', border: 'none', color: '#FF7676', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                        {isHe ? 'מחק בקשה' : 'Delete'}
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ width: '1px' }}></div>
+                )}
+                
+                {!req.isOwn && req.status === 'open' && (
+                  <button onClick={() => handleOfferHelpClick(req.id)} className="btn-primary" style={{ padding: '0.7rem 1.8rem', fontSize: '1rem', background: '#4CAF50' }}>
+                    {isHe ? 'הצע/י עזרה' : 'Offer Help'}
+                  </button>
+                )}
+                
+                {req.status === 'pending' && (
+                  <div style={{ padding: '0.8rem 1.2rem', background: '#F5F3FF', borderRadius: '15px', color: 'var(--primary-dark)', fontWeight: 'bold' }}>
+                    {isHe ? 'הצעת עזרה נשלחה! מחכה לאישור.' : 'Offer sent! Awaiting approval.'}
+                  </div>
+                )}
               </div>
             </div>
           ))}

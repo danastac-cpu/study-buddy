@@ -36,7 +36,6 @@ export default function GroupsBrowserPage() {
   const [groups, setGroups] = useState<StudyGroup[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedParticipants, setSelectedParticipants] = useState<{ id: string, name: string }[] | null>(null);
 
   const fetchGroups = async () => {
     const { data: authData } = await supabase.auth.getUser();
@@ -57,14 +56,8 @@ export default function GroupsBrowserPage() {
     if (groupsData) {
       const formatted = groupsData.map((g: any) => {
         const groupEnrolls = enrollData?.filter(e => e.group_id === g.id) || [];
-        const approved = groupEnrolls.filter(e => e.status === 'approved').map(e => ({ 
-          name: e.profiles?.real_first_name || e.profiles?.alias || 'Student', 
-          id: e.user_id 
-        }));
-        const waiting = groupEnrolls.filter(e => e.status === 'waiting').map(e => ({ 
-          name: e.profiles?.real_first_name || e.profiles?.alias || 'Student', 
-          id: e.user_id 
-        }));
+        const approved = groupEnrolls.filter(e => e.status === 'approved').map(e => ({ name: e.profiles?.real_first_name || e.profiles?.alias || 'Student', id: e.user_id }));
+        const waiting = groupEnrolls.filter(e => e.status === 'waiting').map(e => ({ name: e.profiles?.real_first_name || e.profiles?.alias || 'Student', id: e.user_id }));
         
         const myEnroll = groupEnrolls.find(e => e.user_id === user?.id);
         const status = myEnroll ? myEnroll.status : 'none';
@@ -88,8 +81,8 @@ export default function GroupsBrowserPage() {
           id: g.id,
           title: g.title,
           course: g.course,
-          degree: deg,
-          year: yr,
+          degree: (t.degrees[deg as keyof typeof t.degrees] as string) || deg,
+          year: (t.years[yr as keyof typeof t.years] as string) || yr,
           dateStr: g.session_time,
           description: rawDesc,
           manager: g.profiles?.real_first_name || g.profiles?.alias || 'Manager',
@@ -139,194 +132,179 @@ export default function GroupsBrowserPage() {
     }
   };
 
-  const prettyDate = (dateStr: string) => {
-    if (!dateStr || dateStr === 'TBD' || dateStr === 'טרם נקבע') {
-       return isHe ? '📅 עדיין לא נקבע תאריך' : '📅 Date not yet set';
-    }
-    if (dateStr.includes('T') && dateStr.includes('-')) {
-      try {
-        const d = new Date(dateStr);
-        if (!isNaN(d.getTime())) {
-          return `📅 ${d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' })} | ${d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}`;
-        }
-      } catch (e) {}
-    }
-    return `📅 ${dateStr}`;
-  };
-
   const filteredGroups = groups.filter(g => {
     const matchesSearch = g.title.toLowerCase().includes(searchQuery.toLowerCase()) || g.course.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesMajor = filterMajor === 'All' || g.degree === filterMajor;
-    const matchesYear = filterYear === 'All' || g.year === filterYear || g.year === `year${filterYear}`;
+    const matchesMajor = filterMajor === 'All' || g.degree === filterMajor || (t.degrees[filterMajor as keyof typeof t.degrees] === g.degree);
+    const matchesYear = filterYear === 'All' || g.year === filterYear || (t.years[filterYear as keyof typeof t.years] === g.year);
     return matchesSearch && matchesMajor && matchesYear;
   });
 
   return (
-    <div className="app-wrapper" style={{ direction: isHe ? 'rtl' : 'ltr', background: '#FDFCFE' }}>
+    <div style={{ maxWidth: '1100px', margin: '0 auto', paddingTop: '2.5rem', paddingBottom: '5rem', direction: isHe ? 'rtl' : 'ltr' }}>
       
-      {/* Sidebar Layout Restored */}
-      <nav className="sidebar" style={{ background: '#FFF7FF', border: 'none', boxShadow: '10px 0 30px rgba(0,0,0,0.02)' }}>
-        <Link href="/dashboard" className="btn-secondary" style={{ marginBottom: '2.5rem', background: 'white', borderRadius: '15px' }}>
-          {isHe ? '← חזרה' : '← Back'}
-        </Link>
-        <h2 style={{ fontSize: '2.5rem', marginBottom: '1rem', fontFamily: '"DynaPuff", cursive', color: 'var(--primary-dark)' }}>
-          {isHe ? 'קבוצות למידה' : 'Study Groups'}
-        </h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2.5rem', lineHeight: '1.6' }}>
-          {isHe 
-            ? 'מרחב ללמידה משותפת. מצאו קבוצה לקורס שלכם או פתחו אחת חדשה והזמינו חברים!' 
-            : 'A space for collaborative learning. Find a group for your course or start one and invite friends!'}
-        </p>
+      {/* Language Toggle */}
+      <div style={{ position: 'fixed', top: '2rem', right: '2rem', zIndex: 100 }}>
+        <button 
+          onClick={() => setLanguage(language === 'he' ? 'en' : 'he')}
+          style={{ padding: '0.4rem 0.8rem', borderRadius: '2rem', border: '1px solid var(--primary-color)', background: 'white', cursor: 'pointer', fontWeight: 'bold' }}
+        >
+          {language === 'he' ? 'English (En)' : 'עברית (He)'}
+        </button>
+      </div>
 
-        <Link href="/groups/create" className="btn-primary" style={{ width: '100%', borderRadius: '20px', padding: '1rem', background: 'linear-gradient(135deg, #A78BFA, #8B5CF6)' }}>
-          {isHe ? '+ יצירת קבוצה חדשה' : '+ Start a Group'}
-        </Link>
-      </nav>
-
-      <main className="main-content" style={{ padding: '2rem' }}>
-        <header style={{ marginBottom: '2.5rem' }}>
-          <h1 style={{ fontSize: '2.5rem', color: 'var(--primary-dark)', fontFamily: '"DynaPuff", cursive' }}>
-            {isHe ? 'מצא קבוצת למידה' : 'Find a Study Group'}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
+          <Link href="/dashboard" className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}>
+            {isHe ? '← חזרה לחשבון' : '← Back to Account'}
+          </Link>
+          <h1 style={{ fontSize: '2.5rem', margin: 0, fontFamily: '"DynaPuff", cursive', color: 'var(--primary-color)' }}>
+            {isHe ? 'קבוצות למידה' : 'Study Groups'}
           </h1>
-        </header>
+        </div>
+        <Link href="/groups/create" className="btn-primary" style={{ padding: '0.8rem 1.8rem', fontSize: '1rem', borderRadius: '16px' }}>
+          {isHe ? '+ יצירת קבוצה חדשה' : '+ Start Group'}
+        </Link>
+      </div>
 
-        {/* Filters Restored */}
-        <div style={{ 
-          display: 'flex', gap: '1rem', marginBottom: '2.5rem', flexWrap: 'wrap', 
-          background: 'white', padding: '1.5rem', borderRadius: '30px', 
-          boxShadow: '0 10px 25px rgba(0,0,0,0.03)' 
-        }}>
-          <div style={{ flex: 1, minWidth: '240px' }}>
-            <input 
-              type="text" 
-              className="input-field" 
-              style={{ borderRadius: '15px', background: '#F9F7FF' }}
-              placeholder={isHe ? 'חפש לפי קורס או נושא...' : 'Search by course or topic...'} 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <select className="input-field" style={{ width: '200px', borderRadius: '15px', background: '#F9F7FF' }} value={filterMajor} onChange={(e) => setFilterMajor(e.target.value)}>
+      {/* No Anonymity Warning Restored */}
+      <div style={{ background: 'rgba(255, 152, 0, 0.1)', border: '2px dashed #ff9800', padding: '1.2rem', borderRadius: '15px', marginBottom: '2.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <span style={{ fontSize: '2rem' }}>⚠️</span>
+        <p style={{ margin: 0, color: 'var(--text-main)', fontSize: '0.95rem', fontWeight: '600', lineHeight: 1.5 }}>
+           {isHe 
+             ? 'כאן כל החברים מזוהים בשמם המלא ופרטיהם האישיים ליצירת סביבת לימודים מקצועית ואמינה. השם והתמונה המקוריים שלך יוצגו למי שיצטרף לקבוצה.' 
+             : 'No Anonymity Here! Creating or joining a study group exposes your Real Name and Actual Details for an effective and reliable study environment.'}
+        </p>
+      </div>
+
+      {/* Filters Search/Major/Year Restored */}
+      <div style={{ 
+        display: 'flex', gap: '1.2rem', marginBottom: '2.5rem', flexWrap: 'wrap', 
+        background: 'rgba(255, 255, 255, 0.6)', padding: '1.5rem', borderRadius: '20px', 
+        border: '1px solid rgba(0,0,0,0.05)'
+      }}>
+        <div style={{ flex: 1, minWidth: '240px' }}>
+          <input 
+            type="text" 
+            className="input-field" 
+            placeholder={isHe ? 'חפש לפי קורס או נושא פה...' : 'Search course or topic here...'} 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <select className="input-field" style={{ width: '180px' }} value={filterMajor} onChange={(e) => setFilterMajor(e.target.value)}>
             <option value="All">{isHe ? 'כל החוגים' : 'All Majors'}</option>
             {Object.entries(t.degrees).map(([k, v]) => (
               <option key={k} value={k}>{v as string}</option>
             ))}
           </select>
-          <select className="input-field" style={{ width: '130px', borderRadius: '15px', background: '#F9F7FF' }} value={filterYear} onChange={(e) => setFilterYear(e.target.value)}>
+          <select className="input-field" style={{ width: '120px' }} value={filterYear} onChange={(e) => setFilterYear(e.target.value)}>
             <option value="All">{isHe ? 'כל השנים' : 'All Years'}</option>
             {Object.entries(t.years).map(([k, v]) => (
               <option key={k} value={k}>{v as string}</option>
             ))}
           </select>
         </div>
+      </div>
 
-        {/* Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem' }}>
-          {filteredGroups.map((group) => {
-            const isFull = group.members.length >= group.maxMembers;
-            const isManager = group.managerId === currentUser?.id;
-            let actionLabel = isHe ? (isFull ? 'רשימת המתנה' : 'הצטרפות') : (isFull ? 'Waitlist' : 'Join');
-            if (group.joinedStatus === 'approved') actionLabel = isHe ? 'עבור לצאט' : 'Go to Chat';
-            if (group.joinedStatus === 'waiting') actionLabel = isHe ? 'בהמתנה' : 'Waiting';
+      {/* Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem' }}>
+        {filteredGroups.map((group) => {
+          const isFull = group.members.length >= group.maxMembers;
+          let actionLabel = isHe ? (isFull ? 'רשימת המתנה' : 'הצטרפות') : (isFull ? 'Waitlist' : 'Join');
+          if (group.joinedStatus === 'approved') actionLabel = isHe ? 'עזוב קבוצה' : 'Leave';
+          if (group.joinedStatus === 'waiting') actionLabel = isHe ? 'צא מהמתנה' : 'Leave';
 
-            return (
-              <div key={group.id} className="glass-card" style={{ 
-                display: 'flex', flexDirection: 'column', padding: '1.8rem', 
-                background: 'white', borderRadius: '32px', border: 'none',
-                boxShadow: '0 10px 30px rgba(138, 99, 210, 0.06)', position: 'relative'
-              }}>
-                <div style={{ position: 'absolute', top: '20px', right: isHe ? 'auto' : '20px', left: isHe ? '20px' : 'auto' }}>
-                  <span style={{ 
-                    background: isFull ? '#FFEDED' : '#F0FDF4', 
-                    color: isFull ? '#FF7676' : '#22C55E', 
-                    padding: '0.4rem 0.8rem', borderRadius: '10px', fontSize: '0.7rem', fontWeight: '900' 
-                  }}>
-                    {isFull ? (isHe ? 'מלא' : 'FULL') : (isHe ? `פנוי: ${group.maxMembers - group.members.length}` : `OPEN: ${group.maxMembers - group.members.length}`)}
+          return (
+            <div key={group.id} className="glass-card" style={{ 
+              display: 'flex', flexDirection: 'column', padding: '1.8rem', 
+              borderRadius: '35px', boxShadow: '0 8px 30px rgba(0,0,0,0.04)', background: 'white', border: 'none'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.3rem', color: 'var(--primary-dark)', fontWeight: '900' }}>{group.title}</h3>
+                {isFull ? (
+                  <span style={{ background: '#FFEDED', color: '#FF7676', padding: '0.3rem 0.6rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                    FULL ({group.members.length}/{group.maxMembers})
                   </span>
-                </div>
-
-                <div style={{ marginTop: '1.5rem', marginBottom: '1rem' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: '900', color: 'var(--primary-color)', background: '#F5F3FF', padding: '0.3rem 0.6rem', borderRadius: '8px' }}>
-                    📚 {group.course}
+                ) : (
+                  <span style={{ background: '#F0FDF4', color: '#22C55E', padding: '0.3rem 0.6rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                    {group.maxMembers - group.members.length} SPOTS LEFT
                   </span>
-                  <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.4rem', color: 'var(--primary-dark)', fontWeight: '900' }}>
-                    {group.title}
-                  </h3>
-                </div>
+                )}
+              </div>
+              
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+                <span style={{ background: '#F5F1FF', color: 'var(--primary-color)', padding: '0.3rem 0.6rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '800' }}>📚 {group.course}</span>
+                {group.degree && <span style={{ background: '#F5F1FF', color: 'var(--primary-color)', padding: '0.3rem 0.6rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '800' }}>🎓 {group.degree}</span>}
+                {group.year && <span style={{ background: '#F5F1FF', color: 'var(--primary-color)', padding: '0.3rem 0.6rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '800' }}>📅 {group.year}</span>}
+              </div>
 
-                <p style={{ fontSize: '0.9rem', color: '#666', lineHeight: 1.5, flex: 1, marginBottom: '1.5rem' }}>
-                  {group.description || (isHe ? 'בואו ללמוד יחד!' : "Let's study together!")}
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '0', marginBottom: '1.5rem', lineHeight: 1.5 }}>{group.description}</p>
+              
+              <div style={{ background: '#F9F8FF', padding: '1.2rem', borderRadius: '20px', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+                <p style={{ margin: '0 0 0.6rem 0', fontWeight: '800' }}><strong>👑 {isHe ? 'מנהל:' : 'Manager:'}</strong> {group.manager}</p>
+                <p style={{ margin: 0, color: 'var(--text-muted)', fontWeight: '600' }}>
+                  <strong>👥 {isHe ? 'משתתפים:' : 'Members:'}</strong> {group.members.length > 0 ? group.members.map(m => m.name).join(', ') : (isHe ? 'טרם הצטרפו' : 'None yet')}
                 </p>
+                <button 
+                  onClick={() => alert((isHe ? 'רשימת משתתפים מלאה:\n' : 'Full members list:\n') + group.members.map(m => m.name).join('\n'))}
+                  style={{ background: 'none', border: 'none', color: 'var(--primary-color)', fontSize: '0.75rem', padding: '0.5rem 0 0 0', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'underline' }}
+                >
+                  {isHe ? '(צפה ברשימה המלאה)' : '(View full list)'}
+                </button>
+                {group.waitlist.length > 0 && (
+                  <p style={{ margin: '0.8rem 0 0 0', color: '#B45309', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                    ⌛ {isHe ? 'רשימת המתנה:' : 'Waitlist:'} {group.waitlist.length} {isHe ? 'משתמשים' : 'students'}
+                  </p>
+                )}
+              </div>
 
-                <div style={{ borderTop: '1px solid #F8F7FF', paddingTop: '1.2rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                         <div style={{ width: '24px', height: '24px', borderRadius: '8px', background: '#F5F3FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem' }}>👑</div>
-                         <span style={{ fontSize: '0.85rem', fontWeight: '800' }}>{group.manager}</span>
-                       </div>
-                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>
-                          {group.degree && (t.degrees[group.degree as keyof typeof t.degrees] || group.degree)}
-                          {group.degree && group.year && ' | '}
-                          {group.year && (t.years[group.year as keyof typeof t.years] || group.year)}
-                       </span>
-                    </div>
-                    <div 
-                      onClick={() => setSelectedParticipants(group.members)}
-                      style={{ cursor: 'pointer', textAlign: 'center' }}
-                    >
-                      <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: '800', color: 'var(--primary-color)', background: '#F5F3FF', padding: '0.3rem 0.6rem', borderRadius: '10px' }}>
-                        {group.members.length}/{group.maxMembers} 👥
-                      </span>
-                      <span style={{ fontSize: '0.6rem', color: 'var(--primary-color)', fontWeight: 'bold', display: 'block', marginTop: '4px' }}>
-                        {isHe ? 'צפה במשתתפים' : 'View members'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#999' }}>{prettyDate(group.dateStr)}</span>
-                    <button 
-                      onClick={() => group.joinedStatus === 'approved' ? router.push(`/groups/${group.id}`) : handleActionClick(group.id)}
-                      className="btn-primary" 
-                      style={{ padding: '0.6rem 1.2rem', borderRadius: '14px', fontSize: '0.85rem' }}
-                    >
-                      {actionLabel}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', borderTop: '1px solid #F3F0FF', paddingTop: '1rem' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#999' }}>{group.dateStr}</span>
+                <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+                  {group.joinedStatus === 'approved' ? (
+                    <>
+                      <button onClick={() => router.push('/groups/' + group.id)} className="btn-primary" style={{ padding: '0.5rem 1.2rem', borderRadius: '12px' }}>
+                        {isHe ? 'צאט' : 'Chat'}
+                      </button>
+                      <button onClick={() => handleActionClick(group.id)} style={{ background: 'transparent', border: 'none', color: '#FF7676', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                        {isHe ? 'צא מהקבוצה' : 'Leave'}
+                      </button>
+                    </>
+                  ) : (
+                    <button className={group.joinedStatus !== 'none' ? 'btn-secondary' : 'btn-primary'} style={{ padding: '0.6rem 1.2rem', borderRadius: '12px' }} onClick={() => handleActionClick(group.id)}>
+                       {actionLabel}
                     </button>
-                  </div>
+                  )}
                 </div>
               </div>
-            );
-          })}
-        </div>
-
-        {/* Empty State Restored */}
-        {filteredGroups.length === 0 && !isLoading && (
-          <div style={{ textAlign: 'center', padding: '6rem', background: 'rgba(255,255,255,0.4)', borderRadius: '32px', border: '2px dashed rgba(138, 99, 210, 0.2)', marginTop: '3rem' }}>
-            <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🚀</div>
-            <p style={{ color: 'var(--primary-dark)', fontSize: '1.4rem', fontWeight: '800' }}>
-              {isHe ? 'עוד אין קבוצות פעילות. תהיה הראשון לפתוח אחת!' : 'No active study groups yet. Be the first to start one!'}
-            </p>
-          </div>
-        )}
-      </main>
-
-      {/* Participant Modal */}
-      {selectedParticipants && (
-        <div className="modal-overlay" style={{ backdropFilter: 'blur(10px)', zIndex: 1000 }} onClick={() => setSelectedParticipants(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', borderRadius: '30px', padding: '2rem', background: 'white' }}>
-            <h3 style={{ textAlign: 'center', marginBottom: '1.5rem', fontFamily: '"DynaPuff", cursive' }}>{isHe ? 'משתתפי הקבוצה' : 'Members'}</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-              {selectedParticipants.map(p => (
-                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.8rem', background: '#F9F7FF', borderRadius: '15px' }}>
-                  <span>👤</span>
-                  <span style={{ fontWeight: '800' }}>{p.name}</span>
-                </div>
-              ))}
             </div>
-            <button className="btn-primary" style={{ marginTop: '2rem', width: '100%', borderRadius: '15px' }} onClick={() => setSelectedParticipants(null)}>{isHe ? 'סגירה' : 'Close'}</button>
-          </div>
+          );
+        })}
+      </div>
+ 
+      {/* Empty State Logic */}
+      {groups.length === 0 && !isLoading && (
+        <div style={{ textAlign: 'center', padding: '6rem', background: 'rgba(255,255,255,0.4)', borderRadius: '32px', border: '2px dashed rgba(138, 99, 210, 0.2)', marginTop: '3rem' }}>
+          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🚀</div>
+          <p style={{ color: 'var(--primary-dark)', fontSize: '1.6rem', fontWeight: '900' }}>
+            {isHe ? 'בואו נתחיל ללמוד ביחד! 🚀' : "Let's start studying together! 🚀"}
+          </p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '1rem' }}>
+            {isHe ? 'עוד אין קבוצות פעילות. תהיה הראשון לפתוח אחת!' : 'No active study groups yet. Be the first to start one!'}
+          </p>
         </div>
+      )}
+
+      {groups.length > 0 && filteredGroups.length === 0 && (
+         <div style={{ textAlign: 'center', padding: '4rem', marginTop: '2rem' }}>
+           <p style={{ color: 'var(--primary-dark)', fontSize: '1.4rem', fontWeight: '900' }}>
+             {isHe ? 'לא נמצאו קבוצות 🔍' : 'No groups found 🔍'}
+           </p>
+           <p style={{ color: 'var(--text-muted)' }}>
+              {isHe ? 'נסה לשנות את הפילטרים או את החיפוש.' : 'Try changing your filters or search query.'}
+           </p>
+         </div>
       )}
     </div>
   );
