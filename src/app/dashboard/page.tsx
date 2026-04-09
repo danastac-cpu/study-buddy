@@ -200,9 +200,11 @@ export default function DashboardPage() {
   }, [isHe, router]);
 
   const handleActionWithCleanup = async (notifId: string, action: () => void) => {
-    await supabase.from('updates').delete().eq('id', notifId);
+    const { error } = await supabase.from('updates').delete().eq('id', notifId);
+    if (error) console.error('DELETE NOTIFICATION ERROR:', error);
     setNotifications(prev => prev.filter(n => n.id !== notifId));
     action();
+    router.refresh(); // Sync server state
   };
 
   const handleWaitlistAccept = async (notifId: string, groupId: string) => {
@@ -231,12 +233,14 @@ export default function DashboardPage() {
 
     alert(isHe ? 'יופי! הקבוצה התווספה למפגשים הקרובים שלך.' : 'Great! The group has been added to your upcoming sessions.');
     router.push(`/groups/${groupId}`);
+    router.refresh();
   };
 
   const handleWaitlistDecline = async (notifId: string) => {
     await supabase.from('updates').delete().eq('id', notifId);
     setNotifications(prev => prev.filter(n => n.id !== notifId));
     alert(isHe ? 'בחרת לא להצטרף לקבוצה.' : 'You chose not to join the group.');
+    router.refresh();
   };
 
   const handleDeclineUpdate = async (notifId: string, requestId?: string) => {
@@ -247,6 +251,7 @@ export default function DashboardPage() {
       await supabase.from('help_requests').delete().eq('id', requestId);
       alert(isHe ? 'הבקשה בוטלה והוסרה.' : 'The request has been canceled and removed.');
     }
+    router.refresh();
   };
 
   const handleSaveAvatar = async () => {
