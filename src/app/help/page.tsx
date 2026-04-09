@@ -187,7 +187,7 @@ export default function HelpCenterPage() {
               className="glass-card" 
               style={{ 
                 display: 'flex', flexDirection: 'column', padding: '2rem',
-                borderRadius: '35px', border: 'none',
+                borderRadius: '35px',
                 boxShadow: req.urgencyRaw === 'today' ? '0 0 20px rgba(244, 67, 54, 0.4)' : '0 15px 35px rgba(138, 99, 210, 0.08)',
                 position: 'relative',
                 border: req.urgencyRaw === 'today' ? '2px solid rgba(244, 67, 54, 0.2)' : 'none'
