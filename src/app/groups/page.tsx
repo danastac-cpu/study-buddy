@@ -57,15 +57,32 @@ export default function GroupsBrowserPage() {
     if (groupsData) {
       const formatted = groupsData.map((g: any) => {
         const groupEnrolls = enrollData?.filter(e => e.group_id === g.id) || [];
-        const approved = groupEnrolls.filter(e => e.status === 'approved').map(e => ({ name: e.profiles?.real_first_name || e.profiles?.alias || 'Student', id: e.user_id }));
-        const waiting = groupEnrolls.filter(e => e.status === 'waiting').map(e => ({ name: e.profiles?.real_first_name || e.profiles?.alias || 'Student', id: e.user_id }));
+        const approved = groupEnrolls.filter(e => e.status === 'approved').map(e => ({ 
+          name: e.profiles?.real_first_name || e.profiles?.alias || 'Student', 
+          id: e.user_id 
+        }));
+        const waiting = groupEnrolls.filter(e => e.status === 'waiting').map(e => ({ 
+          name: e.profiles?.real_first_name || e.profiles?.alias || 'Student', 
+          id: e.user_id 
+        }));
         
         const myEnroll = groupEnrolls.find(e => e.user_id === user?.id);
         const status = myEnroll ? myEnroll.status : 'none';
 
-        let rawDesc = g.description || g.text || g.content || '';
-        let deg = g.profiles?.degree || g.profiles?.major || '';
+        let rawDesc = g.description || '';
+        let pref = 'both';
+        if (rawDesc.includes('<!-- PREF:')) {
+           const match = rawDesc.match(/<!-- PREF:(.*?) -->/);
+           if (match) pref = match[1];
+           rawDesc = rawDesc.replace(/<!-- PREF:.*?-->/, '').trim();
+        }
+
+        let deg = g.profiles?.degree || '';
         let yr = g.profiles?.year_of_study || g.profiles?.year || '';
+
+        if (pref === 'none') { deg = ''; yr = ''; }
+        else if (pref === 'major') { yr = ''; }
+        else if (pref === 'year') { deg = ''; }
 
         return {
           id: g.id,
@@ -137,96 +154,162 @@ export default function GroupsBrowserPage() {
     return `📅 ${dateStr}`;
   };
 
+  const filteredGroups = groups.filter(g => {
+    const matchesSearch = g.title.toLowerCase().includes(searchQuery.toLowerCase()) || g.course.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesMajor = filterMajor === 'All' || g.degree === filterMajor;
+    const matchesYear = filterYear === 'All' || g.year === filterYear || g.year === `year${filterYear}`;
+    return matchesSearch && matchesMajor && matchesYear;
+  });
+
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', paddingTop: '2.5rem', paddingBottom: '5rem', direction: isHe ? 'rtl' : 'ltr' }}>
+    <div className="app-wrapper" style={{ direction: isHe ? 'rtl' : 'ltr', background: '#FDFCFE' }}>
       
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2.5rem', padding: '0 1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
-          <Link href="/dashboard" className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', borderRadius: '12px' }}>
-            {isHe ? '← חזרה' : '← Back'}
-          </Link>
-          <h1 style={{ fontSize: '2.5rem', margin: 0, fontFamily: '"DynaPuff", cursive', color: 'var(--primary-dark)' }}>
-            {isHe ? 'קבוצות למידה' : 'Study Groups'}
-          </h1>
-        </div>
-        <Link href="/groups/create" className="btn-primary" style={{ padding: '0.8rem 1.8rem', fontSize: '1rem', borderRadius: '16px' }}>
-          {isHe ? '+ יצירת קבוצה' : '+ Start Group'}
+      {/* Sidebar Layout Restored */}
+      <nav className="sidebar" style={{ background: '#FFF7FF', border: 'none', boxShadow: '10px 0 30px rgba(0,0,0,0.02)' }}>
+        <Link href="/dashboard" className="btn-secondary" style={{ marginBottom: '2.5rem', background: 'white', borderRadius: '15px' }}>
+          {isHe ? '← חזרה' : '← Back'}
         </Link>
-      </div>
+        <h2 style={{ fontSize: '2.5rem', marginBottom: '1rem', fontFamily: '"DynaPuff", cursive', color: 'var(--primary-dark)' }}>
+          {isHe ? 'קבוצות למידה' : 'Study Groups'}
+        </h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2.5rem', lineHeight: '1.6' }}>
+          {isHe 
+            ? 'מרחב ללמידה משותפת. מצאו קבוצה לקורס שלכם או פתחו אחת חדשה והזמינו חברים!' 
+            : 'A space for collaborative learning. Find a group for your course or start one and invite friends!'}
+        </p>
 
-      {/* Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem', padding: '1rem' }}>
-        {groups
-          .filter(g => {
-            const matchesSearch = g.title.toLowerCase().includes(searchQuery.toLowerCase()) || g.course.toLowerCase().includes(searchQuery.toLowerCase());
-            const matchesMajor = filterMajor === 'All' || g.degree === filterMajor;
-            return matchesSearch && matchesMajor;
-          })
-          .map((group) => {
-          const isFull = group.members.length >= group.maxMembers;
-          const isManager = group.managerId === currentUser?.id;
-          let actionLabel = isHe ? (isFull ? 'רשימת המתנה' : 'הצטרפות') : (isFull ? 'Waitlist' : 'Join');
-          if (group.joinedStatus === 'approved') actionLabel = isHe ? 'עבור לצאט' : 'Go to Chat';
-          if (group.joinedStatus === 'waiting') actionLabel = isHe ? 'בהמתנה' : 'Waiting';
+        <Link href="/groups/create" className="btn-primary" style={{ width: '100%', borderRadius: '20px', padding: '1rem', background: 'linear-gradient(135deg, #A78BFA, #8B5CF6)' }}>
+          {isHe ? '+ יצירת קבוצה חדשה' : '+ Start a Group'}
+        </Link>
+      </nav>
 
-          return (
-            <div key={group.id} className="glass-card" style={{ 
-              display: 'flex', flexDirection: 'column', padding: '1.8rem', 
-              background: 'white', borderRadius: '35px', border: 'none',
-              boxShadow: '0 10px 30px rgba(138, 99, 210, 0.06)', position: 'relative'
-            }}>
-              <div style={{ position: 'absolute', top: '20px', right: isHe ? 'auto' : '20px', left: isHe ? '20px' : 'auto' }}>
-                <span style={{ 
-                  background: isFull ? '#FFEDED' : '#F0FDF4', 
-                  color: isFull ? '#FF7676' : '#22C55E', 
-                  padding: '0.4rem 0.8rem', borderRadius: '10px', fontSize: '0.7rem', fontWeight: '900' 
-                }}>
-                  {isFull ? (isHe ? 'מלא' : 'FULL') : (isHe ? `פנוי: ${group.maxMembers - group.members.length}` : `OPEN: ${group.maxMembers - group.members.length}`)}
-                </span>
-              </div>
+      <main className="main-content" style={{ padding: '2rem' }}>
+        <header style={{ marginBottom: '2.5rem' }}>
+          <h1 style={{ fontSize: '2.5rem', color: 'var(--primary-dark)', fontFamily: '"DynaPuff", cursive' }}>
+            {isHe ? 'מצא קבוצת למידה' : 'Find a Study Group'}
+          </h1>
+        </header>
 
-              <div style={{ marginTop: '1.5rem', marginBottom: '1rem' }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: '900', color: 'var(--primary-color)', background: '#F5F3FF', padding: '0.3rem 0.6rem', borderRadius: '8px' }}>
-                  📚 {group.course}
-                </span>
-                <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.4rem', color: 'var(--primary-dark)', fontWeight: '900' }}>
-                  {group.title}
-                </h3>
-              </div>
+        {/* Filters Restored */}
+        <div style={{ 
+          display: 'flex', gap: '1rem', marginBottom: '2.5rem', flexWrap: 'wrap', 
+          background: 'white', padding: '1.5rem', borderRadius: '30px', 
+          boxShadow: '0 10px 25px rgba(0,0,0,0.03)' 
+        }}>
+          <div style={{ flex: 1, minWidth: '240px' }}>
+            <input 
+              type="text" 
+              className="input-field" 
+              style={{ borderRadius: '15px', background: '#F9F7FF' }}
+              placeholder={isHe ? 'חפש לפי קורס או נושא...' : 'Search by course or topic...'} 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <select className="input-field" style={{ width: '200px', borderRadius: '15px', background: '#F9F7FF' }} value={filterMajor} onChange={(e) => setFilterMajor(e.target.value)}>
+            <option value="All">{isHe ? 'כל החוגים' : 'All Majors'}</option>
+            {Object.entries(t.degrees).map(([k, v]) => (
+              <option key={k} value={k}>{v as string}</option>
+            ))}
+          </select>
+          <select className="input-field" style={{ width: '130px', borderRadius: '15px', background: '#F9F7FF' }} value={filterYear} onChange={(e) => setFilterYear(e.target.value)}>
+            <option value="All">{isHe ? 'כל השנים' : 'All Years'}</option>
+            {Object.entries(t.years).map(([k, v]) => (
+              <option key={k} value={k}>{v as string}</option>
+            ))}
+          </select>
+        </div>
 
-              <p style={{ fontSize: '0.9rem', color: '#666', lineHeight: 1.5, flex: 1, marginBottom: '1.5rem' }}>
-                {group.description || (isHe ? 'בואו ללמוד יחד!' : "Let's study together!")}
-              </p>
+        {/* Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem' }}>
+          {filteredGroups.map((group) => {
+            const isFull = group.members.length >= group.maxMembers;
+            const isManager = group.managerId === currentUser?.id;
+            let actionLabel = isHe ? (isFull ? 'רשימת המתנה' : 'הצטרפות') : (isFull ? 'Waitlist' : 'Join');
+            if (group.joinedStatus === 'approved') actionLabel = isHe ? 'עבור לצאט' : 'Go to Chat';
+            if (group.joinedStatus === 'waiting') actionLabel = isHe ? 'בהמתנה' : 'Waiting';
 
-              <div style={{ borderTop: '1px solid #F8F7FF', paddingTop: '1.2rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#F5F3FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>👑</div>
-                    <span style={{ fontSize: '0.85rem', fontWeight: '800' }}>{group.manager}</span>
-                  </div>
-                  <span 
-                    onClick={() => setSelectedParticipants(group.members)}
-                    style={{ cursor: 'pointer', fontSize: '0.85rem', fontWeight: '800', color: 'var(--primary-color)', background: '#F5F3FF', padding: '0.3rem 0.6rem', borderRadius: '10px' }}
-                  >
-                    {group.members.length}/{group.maxMembers} 👥
+            return (
+              <div key={group.id} className="glass-card" style={{ 
+                display: 'flex', flexDirection: 'column', padding: '1.8rem', 
+                background: 'white', borderRadius: '32px', border: 'none',
+                boxShadow: '0 10px 30px rgba(138, 99, 210, 0.06)', position: 'relative'
+              }}>
+                <div style={{ position: 'absolute', top: '20px', right: isHe ? 'auto' : '20px', left: isHe ? '20px' : 'auto' }}>
+                  <span style={{ 
+                    background: isFull ? '#FFEDED' : '#F0FDF4', 
+                    color: isFull ? '#FF7676' : '#22C55E', 
+                    padding: '0.4rem 0.8rem', borderRadius: '10px', fontSize: '0.7rem', fontWeight: '900' 
+                  }}>
+                    {isFull ? (isHe ? 'מלא' : 'FULL') : (isHe ? `פנוי: ${group.maxMembers - group.members.length}` : `OPEN: ${group.maxMembers - group.members.length}`)}
                   </span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#999' }}>{prettyDate(group.dateStr)}</span>
-                  <button 
-                    onClick={() => group.joinedStatus === 'approved' ? router.push(`/groups/${group.id}`) : handleActionClick(group.id)}
-                    className="btn-primary" 
-                    style={{ padding: '0.6rem 1.2rem', borderRadius: '14px', fontSize: '0.85rem' }}
-                  >
-                    {actionLabel}
-                  </button>
+                <div style={{ marginTop: '1.5rem', marginBottom: '1rem' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: '900', color: 'var(--primary-color)', background: '#F5F3FF', padding: '0.3rem 0.6rem', borderRadius: '8px' }}>
+                    📚 {group.course}
+                  </span>
+                  <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.4rem', color: 'var(--primary-dark)', fontWeight: '900' }}>
+                    {group.title}
+                  </h3>
+                </div>
+
+                <p style={{ fontSize: '0.9rem', color: '#666', lineHeight: 1.5, flex: 1, marginBottom: '1.5rem' }}>
+                  {group.description || (isHe ? 'בואו ללמוד יחד!' : "Let's study together!")}
+                </p>
+
+                <div style={{ borderTop: '1px solid #F8F7FF', paddingTop: '1.2rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                         <div style={{ width: '24px', height: '24px', borderRadius: '8px', background: '#F5F3FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem' }}>👑</div>
+                         <span style={{ fontSize: '0.85rem', fontWeight: '800' }}>{group.manager}</span>
+                       </div>
+                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>
+                          {group.degree && (t.degrees[group.degree as keyof typeof t.degrees] || group.degree)}
+                          {group.degree && group.year && ' | '}
+                          {group.year && (t.years[group.year as keyof typeof t.years] || group.year)}
+                       </span>
+                    </div>
+                    <div 
+                      onClick={() => setSelectedParticipants(group.members)}
+                      style={{ cursor: 'pointer', textAlign: 'center' }}
+                    >
+                      <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: '800', color: 'var(--primary-color)', background: '#F5F3FF', padding: '0.3rem 0.6rem', borderRadius: '10px' }}>
+                        {group.members.length}/{group.maxMembers} 👥
+                      </span>
+                      <span style={{ fontSize: '0.6rem', color: 'var(--primary-color)', fontWeight: 'bold', display: 'block', marginTop: '4px' }}>
+                        {isHe ? 'צפה במשתתפים' : 'View members'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#999' }}>{prettyDate(group.dateStr)}</span>
+                    <button 
+                      onClick={() => group.joinedStatus === 'approved' ? router.push(`/groups/${group.id}`) : handleActionClick(group.id)}
+                      className="btn-primary" 
+                      style={{ padding: '0.6rem 1.2rem', borderRadius: '14px', fontSize: '0.85rem' }}
+                    >
+                      {actionLabel}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+
+        {/* Empty State Restored */}
+        {filteredGroups.length === 0 && !isLoading && (
+          <div style={{ textAlign: 'center', padding: '6rem', background: 'rgba(255,255,255,0.4)', borderRadius: '32px', border: '2px dashed rgba(138, 99, 210, 0.2)', marginTop: '3rem' }}>
+            <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🚀</div>
+            <p style={{ color: 'var(--primary-dark)', fontSize: '1.4rem', fontWeight: '800' }}>
+              {isHe ? 'עוד אין קבוצות פעילות. תהיה הראשון לפתוח אחת!' : 'No active study groups yet. Be the first to start one!'}
+            </p>
+          </div>
+        )}
+      </main>
 
       {/* Participant Modal */}
       {selectedParticipants && (

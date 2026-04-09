@@ -125,10 +125,13 @@ export default function CreateHelpRequestPage() {
 
             {urgency === 'this_week' && (
               <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--text-main)' }}>
+                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.2rem', color: 'var(--text-main)' }}>
                   {isHe ? 'תאריך מועדף השבוע' : 'Preferred Date This Week'}
                 </label>
-                <input name="targetDate" type="date" className="input-field" required />
+                <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: '#999' }}>
+                   {isHe ? 'לא חייב למלא' : 'Not mandatory to fill'}
+                </p>
+                <input name="targetDate" type="date" className="input-field" />
               </div>
             )}
 

@@ -14,77 +14,58 @@ export default function HelpCenterPage() {
   const t = translations[language];
   const isHe = language === 'he';
 
-  // Live Data from Supabase
   const [requests, setRequests] = useState<any[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
-  
   const [filterMajor, setFilterMajor] = useState('All');
   const [filterYear, setFilterYear] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const fetchData = async () => {
+    const { data: userData } = await supabase.auth.getUser();
+    if (userData?.user) setUserId(userData.user.id);
+
+    const { data, error } = await supabase
+      .from('help_requests')
+      .select('*, profiles:profiles!requester_id(alias, avatar_base, degree, year, year_of_study)')
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      const formatted = data.map(r => ({
+        id: r.id,
+        avatarBase: r.profiles?.avatar_base || 'brain',
+        nickname: r.profiles?.alias || 'Guest',
+        degree: r.profiles?.degree || 'Student',
+        year: r.profiles?.year || r.profiles?.year_of_study || '',
+        content: r.topic,
+        status: r.status,
+        urgency: r.urgency_level === 'today' ? 'today' : (r.urgency_level === 'this_week' ? 'this_week' : 'flexible'),
+        duration: r.duration_mins || '', 
+        course: r.course || r.course_name, 
+        dateStr: r.date_str,
+        isOwn: r.requester_id === userData?.user?.id,
+        user_id: r.requester_id
+      }));
+      setRequests(formatted);
+    }
+  };
+
   useEffect(() => {
-    const user_id_temp = userId;
-    const fetchData = async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      if (userData?.user) setUserId(userData.user.id);
-
-      const { data, error } = await supabase
-        .from('help_requests')
-        .select('*, profiles:profiles!requester_id(alias, avatar_base, degree, year, year_of_study)')
-        .order('created_at', { ascending: false });
-
-      if (!error && data) {
-        const formatted = data.map(r => ({
-          id: r.id,
-          avatarBase: r.profiles?.avatar_base || 'brain',
-          nickname: r.profiles?.alias || 'Guest',
-          degree: r.profiles?.degree || 'Student',
-          year: r.profiles?.year || '',
-          content: r.topic,
-          status: r.status,
-          urgency: r.urgency_level === 'today' ? (isHe ? 'היום!' : 'Today!') : (r.urgency_level === 'this_week' ? (isHe ? 'השבוע' : 'This Week') : (isHe ? 'גמיש' : 'Flexible')),
-          duration: r.duration_mins ? `${r.duration_mins}m` : '', 
-          course: r.course || r.course_name, 
-          dateStr: r.date_str,
-          isOwn: r.requester_id === user_id_temp || r.requester_id === userData?.user?.id,
-          user_id: r.requester_id
-        }));
-        setRequests(formatted);
-      }
-    };
-
     fetchData();
-
-    // Realtime listener
     const channel = supabase.channel('help_center_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'help_requests' }, () => {
-        fetchData();
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'help_requests' }, () => fetchData())
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [isHe, userId]);
-
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState('');
+    return () => { supabase.removeChannel(channel); };
+  }, [isHe]);
 
   if (!isReady) return null;
 
   const handleOfferHelpClick = async (postId: string) => {
     if (!userId) return;
-    const { error } = await supabase
-      .from('help_requests')
-      .update({ status: 'pending', helper_id: userId })
-      .eq('id', postId);
-
+    const { error } = await supabase.from('help_requests').update({ status: 'pending', helper_id: userId }).eq('id', postId);
     if (!error) {
-      setRequests(requests.map(r => r.id === postId ? { ...r, status: 'pending' } : r));
-      
-      // 2. Fetch requester profile to send notification & email
+      fetchData();
       const reqInfo = requests.find(r => r.id === postId);
-      if (reqInfo && reqInfo.user_id !== userId) {
-        // Create DB Update/Notification
+      if (reqInfo) {
         await supabase.from('updates').insert([{
            user_id: reqInfo.user_id,
            type: 'help',
@@ -94,74 +75,28 @@ export default function HelpCenterPage() {
            content_en: `Someone offered help for your post: "${reqInfo.course}".`,
            request_id: postId
         }]);
-
-        // Send Email
-        const { data: prof } = await supabase.from('profiles').select('email, real_first_name, alias').eq('id', reqInfo.user_id).single();
-        if (prof?.email) {
-          emailService.sendNotificationEmail(
-            prof.email,
-            prof.real_first_name || prof.alias || 'Buddy',
-            `היי! מישהו הציע לעזור לך בשיעורי הבית ב-${reqInfo.course}! ✨ כנס/י לאתר כדי לאשר את העזרה.`,
-            `Hi! Someone offered to help with your ${reqInfo.course} homework! ✨ Log in to the site to approve the help.`
-          );
-        }
       }
     }
   };
 
   const handleDeleteRequest = async (postId: string) => {
-    const request = requests.find((r: any) => r.id === postId);
-    if (!request) return;
-
-    if (request.status === 'offered' || request.status === 'pending') {
-      alert(isHe ? 'לא ניתן למחוק בקשה זו מכיוון שמישהו כבר הציע עזרה!' : 'Cannot delete this request because someone already offered help!');
-      return;
-    }
-    
     if (confirm(isHe ? 'האם את/ה בטוח/ה שברצונך למחוק בקשה זו?' : 'Are you sure you want to delete this request?')) {
       const { error } = await supabase.from('help_requests').delete().eq('id', postId);
-      if (!error) setRequests(requests.filter(r => r.id !== postId));
-    }
-  };
-
-  const handleStartEdit = (req: any) => {
-    setEditingId(req.id);
-    setEditContent(req.content);
-  };
-
-  const handleSaveEdit = async (postId: string) => {
-    const { error } = await supabase
-      .from('help_requests')
-      .update({ topic: editContent })
-      .eq('id', postId);
-
-    if (!error) {
-        setRequests(requests.map(r => r.id === postId ? { ...r, content: editContent } : r));
-        setEditingId(null);
+      if (!error) fetchData();
     }
   };
 
   const prettyDate = (dateStr: string) => {
-    if (!dateStr || dateStr === 'TBD' || dateStr === 'טרם נקבע') return null;
+    if (!dateStr || dateStr === 'TBD' || dateStr === 'טרם נקבע') return isHe ? '📅 עדיין לא נקבע' : '📅 Not set';
     if (dateStr.includes('T') && dateStr.includes('-')) {
       try {
         const d = new Date(dateStr);
         if (!isNaN(d.getTime())) {
           return `${d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' })}`;
         }
-      } catch (e) { /* fallback */ }
+      } catch (e) {}
     }
     return dateStr;
-  };
-
-  const getUrgencyStars = (urgency: string) => {
-    if (urgency.includes('דחוף') || urgency.includes('Urgent') || urgency.includes('היום') || urgency.includes('Today')) {
-       return '⭐️⭐️⭐️';
-    }
-    if (urgency.includes('השבוע') || urgency.includes('Week')) {
-       return '⭐️⭐️';
-    }
-    return '⭐️';
   };
 
   return (
@@ -174,7 +109,7 @@ export default function HelpCenterPage() {
         <h2 style={{ fontSize: '2.5rem', marginBottom: '1rem', fontFamily: '"DynaPuff", cursive', color: 'var(--primary-dark)' }}>
           {isHe ? 'מרכז עזרה' : 'Help Center'}
         </h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2.5rem' }}>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2.5rem', lineHeight: '1.6' }}>
           {isHe ? 'מרחב בטוח למציאת עזרה בלימודים.' : 'A safe space to find academic help.'}
         </p>
 
@@ -184,9 +119,21 @@ export default function HelpCenterPage() {
       </nav>
       
       <main className="main-content" style={{ padding: '2rem' }}>
+        <style>{`
+          @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(255, 118, 118, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(255, 118, 118, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 118, 118, 0); }
+          }
+          .pulse-card {
+            animation: pulse-red 2s infinite;
+            border: 2px solid #FFEDED !important;
+          }
+        `}</style>
+
         <header style={{ marginBottom: '2.5rem' }}>
           <h1 style={{ fontSize: '2.5rem', color: 'var(--primary-dark)', fontFamily: '"DynaPuff", cursive' }}>
-            {isHe ? 'בקשות עזרה (אנונימי 🔒)' : 'Help Requests (Anonymous 🔒)'}
+            {isHe ? 'בקשות עזרה' : 'Help Requests'}
           </h1>
         </header>
 
@@ -226,29 +173,44 @@ export default function HelpCenterPage() {
               const matchesSearch = r.course?.toLowerCase().includes(searchQuery.toLowerCase());
               const matchesMajor = filterMajor === 'All' || r.degree === filterMajor;
               const matchesYear = filterYear === 'All' || r.year === filterYear || r.year === `year${filterYear}`;
-              return (matchesSearch || !searchQuery) && matchesMajor && matchesYear;
+              return matchesSearch && matchesMajor && matchesYear;
             })
             .map((req) => (
             <div 
               key={req.id} 
-              className="glass-card" 
+              className={`glass-card ${req.urgency === 'today' ? 'pulse-card' : ''}`}
               style={{ 
                 padding: '2rem', borderRadius: '35px', background: 'white', border: 'none',
-                boxShadow: '0 15px 35px rgba(138, 99, 210, 0.08)', position: 'relative',
-                display: 'flex', flexDirection: 'column', height: '100%'
+                boxShadow: req.urgency === 'today' ? 'none' : '0 15px 35px rgba(138, 99, 210, 0.08)', 
+                position: 'relative', display: 'flex', flexDirection: 'column', height: '100%'
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.2rem' }}>
                 <ScienceAvatar avatarId={req.avatarBase} avatarFile={`${req.avatarBase}.png`} accessory={null} size={55} backgroundColor="#F3F0FF" />
                 <div>
                   <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '900' }}>{req.nickname}</h3>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{getUrgencyStars(req.urgency)}</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>
+                    {t.degrees[req.degree as keyof typeof t.degrees] || req.degree}
+                    {req.year && ` • ${t.years[req.year as keyof typeof t.years] || req.year}`}
+                  </span>
                 </div>
               </div>
 
-              <div style={{ marginBottom: '1.2rem' }}>
-                 <span style={{ background: '#F0EFFF', color: 'var(--primary-color)', padding: '0.4rem 0.8rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: '800' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.2rem', flexWrap: 'wrap' }}>
+                 <span style={{ background: '#F5F3FF', color: 'var(--primary-color)', padding: '0.4rem 0.8rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '900' }}>
                    📚 {req.course}
+                 </span>
+                 {req.duration && (
+                   <span style={{ background: '#FDF2F8', color: '#DB2777', padding: '0.4rem 0.8rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '900' }}>
+                     🕒 {req.duration}m
+                   </span>
+                 )}
+                 <span style={{ 
+                    background: req.urgency === 'today' ? '#FFEDED' : (req.urgency === 'this_week' ? '#FFFBEB' : '#F0FDF4'), 
+                    color: req.urgency === 'today' ? '#FF7676' : (req.urgency === 'this_week' ? '#B45309' : '#166534'),
+                    padding: '0.4rem 0.8rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '900' 
+                 }}>
+                   {req.urgency === 'today' ? (isHe ? 'היום!' : 'Today!') : (req.urgency === 'this_week' ? (isHe ? 'השבוע' : 'This Week') : (isHe ? 'גמיש' : 'Flexible'))}
                  </span>
               </div>
 
@@ -256,27 +218,27 @@ export default function HelpCenterPage() {
                 <p style={{ lineHeight: '1.6', fontSize: '1rem', color: '#444' }}>{req.content}</p>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #F0F0F0', paddingTop: '1.2rem' }}>
-                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>
-                      {t.degrees[req.degree as keyof typeof t.degrees] || req.degree}
-                    </span>
-                    {req.dateStr && req.dateStr !== 'TBD' && (
-                      <span style={{ fontSize: '0.85rem', color: 'var(--primary-color)', fontWeight: '900' }}>
-                        📅 {prettyDate(req.dateStr)}
-                      </span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #F8F7FF', paddingTop: '1.2rem' }}>
+                 <span style={{ fontSize: '0.8rem', color: '#999', fontWeight: '800' }}>
+                    {prettyDate(req.dateStr)}
+                 </span>
+
+                 <div style={{ display: 'flex', gap: '0.8rem' }}>
+                    {req.isOwn ? (
+                       <>
+                         <button onClick={() => router.push(`/help/edit/${req.id}`)} style={{ color: 'var(--primary-color)', border: 'none', background: 'none', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}>
+                           {isHe ? 'ערוך' : 'Edit'}
+                         </button>
+                         <button onClick={() => handleDeleteRequest(req.id)} style={{ color: '#FF7676', border: 'none', background: 'none', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}>
+                           {isHe ? 'מחק' : 'Delete'}
+                         </button>
+                       </>
+                    ) : req.status === 'open' && (
+                       <button onClick={() => handleOfferHelpClick(req.id)} className="btn-primary" style={{ padding: '0.6rem 1.2rem', borderRadius: '15px', fontSize: '0.9rem' }}>
+                         {isHe ? 'הצע/י עזרה' : 'Offer Help'}
+                       </button>
                     )}
                  </div>
-
-                 {req.isOwn ? (
-                    <button onClick={() => handleDeleteRequest(req.id)} style={{ color: '#FF7676', border: 'none', background: 'none', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}>
-                      {isHe ? 'מחק' : 'Delete'}
-                    </button>
-                 ) : req.status === 'open' && (
-                    <button onClick={() => handleOfferHelpClick(req.id)} className="btn-primary" style={{ padding: '0.6rem 1.2rem', borderRadius: '15px', fontSize: '0.9rem' }}>
-                      {isHe ? 'הצע/י עזרה' : 'Offer Help'}
-                    </button>
-                 )}
               </div>
             </div>
           ))}

@@ -37,7 +37,7 @@ export default function CreateGroupPage() {
 
     setIsSubmitting(true);
     const dateLabel = (createDate || createTime) 
-      ? `${createDate}${createDate && createTime ? ' ' : ''}${createTime}` 
+      ? `${createDate}${createDate && createTime ? ' | ' : ''}${createTime}` 
       : (isHe ? 'טרם נקבע' : 'TBD');
 
     // 1. Insert Group
@@ -129,8 +129,8 @@ export default function CreateGroupPage() {
                 <label style={{ display: 'block', fontWeight: '500', marginBottom: '0.2rem', color: 'var(--text-main)' }}>
                   {isHe ? 'תאריך ושעה קבועים מראש' : 'Set Date & Time'}
                 </label>
-                <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
-                  {isHe ? '(לא חובה – ניתן לתאם ולשנות מאוחר יותר בצ׳אט)' : '(Optional - can be arranged later)'}
+                <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                  {isHe ? '(לא חובה למלא – ניתן לתאם מאוחר יותר)' : '(Optional - can be arranged later)'}
                 </span>
                 <div style={{ display: 'flex', gap: '0.8rem' }}>
                   <input type="date" className="input-field" style={{ flex: 1 }} value={createDate} onChange={e => setCreateDate(e.target.value)} />
