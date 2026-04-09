@@ -175,7 +175,7 @@ export default function FeedPage() {
         return;
     }
 
-    let { data: comment, error } = await supabase
+    const { data: comment, error } = await supabase
       .from('feed_comments')
       .insert([{
         post_id: postId,
@@ -183,29 +183,22 @@ export default function FeedPage() {
         content: text,
         show_details: showReplyDetails
       }])
-      .select('*, profiles(*)')
-      .maybeSingle(); // Switch to maybeSingle to avoid crashes if single() fails
-
-    if (error && error.message.includes('foreign key constraint')) {
-       // fallback for comment
-       console.warn('REPLY FALLBACK TRIGGERED');
-       const fallbackRet = await supabase.from('feed_comments').insert([{
-        post_id: postId,
-        content: text,
-        show_details: showReplyDetails,
-        user_id: null
-      }]).select('*').maybeSingle();
-      comment = fallbackRet.data;
-      error = fallbackRet.error;
-    }
+      .select('*')
+      .single();
 
     if (!error && comment) {
-      const cp = comment.profiles || {};
+      // Manually fetch profile to avoid "Could not find relationship" schema error
+      const { data: cp } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .single();
+        
       const newComment: FeedComment = {
         id: comment.id,
-        author: cp.alias || (isHe ? 'סטודנט/ית' : 'Student'),
-        degree: showReplyDetails ? `${cp.degree || ''} • ${isHe ? 'שנה' : 'Year'} ${cp.year_of_study || cp.year || ''}` : '',
-        avatarBase: cp.avatar_base || 'brain',
+        author: cp?.alias || (isHe ? 'סטודנט/ית' : 'Student'),
+        degree: showReplyDetails ? `${cp?.degree || ''} • ${isHe ? 'שנה' : 'Year'} ${cp?.year_of_study || cp?.year || ''}` : '',
+        avatarBase: cp?.avatar_base || 'brain',
         text: comment.content || comment.text,
         user_id: comment.user_id
       };

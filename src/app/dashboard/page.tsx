@@ -199,6 +199,12 @@ export default function DashboardPage() {
     };
   }, [isHe, router]);
 
+  const handleActionWithCleanup = async (notifId: string, action: () => void) => {
+    await supabase.from('updates').delete().eq('id', notifId);
+    setNotifications(prev => prev.filter(n => n.id !== notifId));
+    action();
+  };
+
   const handleWaitlistAccept = async (notifId: string, groupId: string) => {
     // 1. Delete notification from DB
     await supabase.from('updates').delete().eq('id', notifId);
@@ -214,7 +220,6 @@ export default function DashboardPage() {
         .eq('user_id', authData.user.id);
     }
 
-    // 3. Trigger Mock Email
     if (profile?.email) {
       emailService.sendNotificationEmail(
         profile.email,
@@ -235,29 +240,13 @@ export default function DashboardPage() {
   };
 
   const handleDeclineUpdate = async (notifId: string, requestId?: string) => {
-    // 1. Remove notification
     await supabase.from('updates').delete().eq('id', notifId);
     setNotifications(prev => prev.filter(n => n.id !== notifId));
 
-    // 2. Logic for Reject (דחה)
     if (requestId) {
-      if (profile?.email) {
-        emailService.sendNotificationEmail(
-          profile.email,
-          profile.real_first_name || profile.alias || 'Buddy',
-          `הבקשה נמחקה בהצלחה מלוח הבקשות. תמיד אפשר ליצור אחת חדשה!`,
-          `Your request has been successfully removed from the request board. You can always create a new one!`
-        );
-      }
-
       await supabase.from('help_requests').delete().eq('id', requestId);
-      alert(isHe ? 'הבקשה שלך נמחקה מלוח הבקשות אתה יכול ליצור בקשה חדשה אם אתה מעוניין!' : 'Your request was deleted! You can create a new one if you wish.');
+      alert(isHe ? 'הבקשה בוטלה והוסרה.' : 'The request has been canceled and removed.');
     }
-  };
-
-  /** Alias for backward compatibility if needed */
-  const handleDeleteRequestUpdate = (notifId: string, requestId?: string) => {
-    handleDeclineUpdate(notifId, requestId);
   };
 
   const handleSaveAvatar = async () => {
@@ -663,7 +652,7 @@ export default function DashboardPage() {
                         <div style={{ marginTop: '1.2rem', display: 'flex', gap: '0.8rem' }}>
                           {notif.type === 'approval' || notif.type === 'help' ? (
                             <>
-                              <button onClick={() => router.push(`/chat/${notif.requestId}?role=requester`)} className="btn-primary" style={{ background: '#4CAF50', padding: '0.6rem 1.2rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                              <button onClick={() => handleActionWithCleanup(notif.id, () => router.push(`/chat/${notif.requestId}?role=requester`))} className="btn-primary" style={{ background: '#4CAF50', padding: '0.6rem 1.2rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
                                 {isHe ? 'אשר פרטים ולך לצ׳אט!' : 'Approve & Go to Chat!'}
                               </button>
                               <button onClick={() => handleDeclineUpdate(notif.id, notif.requestId)} className="btn-secondary" style={{ padding: '0.6rem 1rem', fontSize: '0.9rem' }}>
@@ -671,7 +660,7 @@ export default function DashboardPage() {
                               </button>
                             </>
                           ) : notif.type === 'helper-approved' ? (
-                            <button onClick={() => router.push(`/chat/${notif.requestId}?role=helper`)} className="btn-primary" style={{ background: '#2196F3', padding: '0.6rem 1.5rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                            <button onClick={() => handleActionWithCleanup(notif.id, () => router.push(`/chat/${notif.requestId}?role=helper`))} className="btn-primary" style={{ background: '#2196F3', padding: '0.6rem 1.5rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
                               {isHe ? 'לך לצ׳אט' : 'Go to Chat'}
                             </button>
                           ) : notif.type === 'reschedule' ? (
@@ -679,7 +668,7 @@ export default function DashboardPage() {
                               <button className="btn-primary" style={{ background: '#FFC107', color: 'black', padding: '0.6rem 1.2rem', fontSize: '0.9rem', fontWeight: 'bold' }} onClick={() => setShowRescheduleModal(true)}>
                                 {isHe ? 'כן, עדכן' : 'Yes, Update'}
                               </button>
-                              <button onClick={() => handleDeleteRequestUpdate(notif.id, notif.requestId)} className="btn-secondary" style={{ padding: '0.6rem 1rem', fontSize: '0.9rem' }}>
+                              <button onClick={() => handleDeclineUpdate(notif.id, notif.requestId)} className="btn-secondary" style={{ padding: '0.6rem 1rem', fontSize: '0.9rem' }}>
                                 {isHe ? 'דחה' : 'Decline'}
                               </button>
                             </>

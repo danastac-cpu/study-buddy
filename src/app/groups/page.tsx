@@ -213,64 +213,86 @@ export default function GroupsBrowserPage() {
     }
   };
 
+  const prettyDate = (dateStr: string) => {
+    if (!dateStr || dateStr === 'TBD' || dateStr === 'טרם נקבע') {
+       return isHe ? '📅 עדיין לא נקבע תאריך' : '📅 Date not yet set';
+    }
+    // Check if it's an ISO string (contains T and -)
+    if (dateStr.includes('T') && dateStr.includes('-')) {
+      try {
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) {
+          return `📅 ${d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' })} | ${d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}`;
+        }
+      } catch (e) { /* fallback to raw */ }
+    }
+    return `📅 ${dateStr}`;
+  };
+
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto', paddingTop: '2rem', paddingBottom: '4rem', direction: isHe ? 'rtl' : 'ltr' }}>
+    <div style={{ maxWidth: '1100px', margin: '0 auto', paddingTop: '2.5rem', paddingBottom: '5rem', direction: isHe ? 'rtl' : 'ltr' }}>
       
       {/* Language Toggle */}
       <div style={{ position: 'fixed', top: '2rem', right: '2rem', zIndex: 100 }}>
         <button 
           onClick={() => setLanguage(language === 'he' ? 'en' : 'he')}
-          style={{ padding: '0.4rem 0.8rem', borderRadius: '2rem', border: '1px solid var(--primary-color)', background: 'white', cursor: 'pointer', fontWeight: 'bold' }}
+          style={{ padding: '0.5rem 1rem', borderRadius: '3rem', border: '1px solid rgba(138, 99, 210, 0.3)', background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(10px)', color: 'var(--primary-dark)', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}
         >
           {language === 'he' ? 'English (En)' : 'עברית (He)'}
         </button>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Link href="/dashboard" className="btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
-            {isHe ? '← חזרה לחשבון' : '← Back to Account'}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
+          <Link href="/dashboard" className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', borderRadius: '12px' }}>
+            {isHe ? '← חזרה' : '← Back'}
           </Link>
-          <h1 style={{ fontSize: '2.5rem', margin: 0, fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive', color: 'var(--primary-color)' }}>
+          <h1 style={{ fontSize: '3rem', margin: 0, fontFamily: '"DynaPuff", cursive', background: 'linear-gradient(135deg, var(--primary-color), var(--primary-dark))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             {isHe ? 'קבוצות למידה' : 'Study Groups'}
           </h1>
         </div>
-        <Link href="/groups/create" className="btn-primary">
-          {isHe ? '+ יצירת קבוצה' : '+ Create Group'}
+        <Link href="/groups/create" className="btn-primary" style={{ padding: '0.8rem 1.8rem', fontSize: '1rem', borderRadius: '16px', boxShadow: '0 8px 25px rgba(138, 99, 210, 0.4)' }}>
+          {isHe ? '+ יצירת קבוצה חדשה' : '+ Start a Group'}
         </Link>
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap', background: 'white', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--primary-light)' }}>
-        <div style={{ flex: 1, minWidth: '200px' }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--primary-dark)' }}>
-            🔍 {isHe ? 'חיפוש חופשי' : 'Search Groups'}
+      <div style={{ 
+        display: 'flex', gap: '1.2rem', marginBottom: '3rem', flexWrap: 'wrap', 
+        background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(20px)', padding: '1.8rem', 
+        borderRadius: '24px', border: '1px solid rgba(255, 255, 255, 0.5)', 
+        boxShadow: '0 10px 40px rgba(138, 99, 210, 0.08)' 
+      }}>
+        <div style={{ flex: 1, minWidth: '240px' }}>
+          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '800', marginBottom: '0.6rem', color: 'var(--primary-dark)', opacity: 0.8 }}>
+            🔍 {isHe ? 'חפש לפי קורס או נושא' : 'Search by Course/Topic'}
           </label>
           <input 
             type="text" 
             className="input-field" 
-            placeholder={isHe ? 'לפי כותרת או קורס...' : 'Search by title or course...'} 
+            style={{ borderRadius: '14px', border: '1px solid rgba(138, 99, 210, 0.15)', background: 'white' }}
+            placeholder={isHe ? 'למשל: אנטומיה, פיזיקה 1...' : 'e.g. Anatomy, Physics...'} 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div style={{ width: '180px' }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--primary-dark)' }}>
-            🎓 {isHe ? 'סינון לפי חוג' : 'Filter by Major'}
+        <div style={{ width: '200px' }}>
+          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '800', marginBottom: '0.6rem', color: 'var(--primary-dark)', opacity: 0.8 }}>
+            🎓 {isHe ? 'חוג' : 'Major'}
           </label>
-          <select className="input-field" value={filterMajor} onChange={(e) => setFilterMajor(e.target.value)}>
-            <option value="All">{isHe ? 'הכל' : 'All'}</option>
+          <select className="input-field" style={{ borderRadius: '14px', border: '1px solid rgba(138, 99, 210, 0.15)', background: 'white' }} value={filterMajor} onChange={(e) => setFilterMajor(e.target.value)}>
+            <option value="All">{isHe ? 'כל החוגים' : 'All Majors'}</option>
             {Object.entries(t.degrees).map(([k, v]) => (
               <option key={k} value={k}>{v as string}</option>
             ))}
           </select>
         </div>
-        <div style={{ width: '120px' }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--primary-dark)' }}>
+        <div style={{ width: '150px' }}>
+          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '800', marginBottom: '0.6rem', color: 'var(--primary-dark)', opacity: 0.8 }}>
             🗓️ {isHe ? 'שנה' : 'Year'}
           </label>
-          <select className="input-field" value={filterYear} onChange={(e) => setFilterYear(e.target.value)}>
-            <option value="All">{isHe ? 'הכל' : 'All'}</option>
+          <select className="input-field" style={{ borderRadius: '14px', border: '1px solid rgba(138, 99, 210, 0.15)', background: 'white' }} value={filterYear} onChange={(e) => setFilterYear(e.target.value)}>
+            <option value="All">{isHe ? 'כל השנים' : 'All Years'}</option>
             {Object.entries(t.years).map(([k, v]) => (
               <option key={k} value={k}>{v as string}</option>
             ))}
@@ -278,15 +300,7 @@ export default function GroupsBrowserPage() {
         </div>
       </div>
 
-      {/* No Anonymity Warning */}
-      <div style={{ background: 'rgba(255, 152, 0, 0.05)', border: '1px solid #ff9800', padding: '1rem', borderRadius: '8px', marginBottom: '2rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-        <span style={{ fontSize: '1.5rem' }}>⚠️</span>
-        <p style={{ margin: 0, color: 'var(--text-main)', fontSize: '0.9rem', fontWeight: '500' }}>
-           {isHe ? 'כאן כל החברים מזוהים בשמם המלא ופרטיהם האישיים ליצירת סביבת לימודים מקצועית ואמינה.' : 'No Anonymity Here! Creating or joining a study group exposes your Real Name and Actual Details for an effective study environment.'}
-        </p>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '2.5rem' }}>
         {groups
           .filter(g => {
             const matchesSearch = g.title.toLowerCase().includes(searchQuery.toLowerCase()) || g.course.toLowerCase().includes(searchQuery.toLowerCase());
@@ -308,101 +322,127 @@ export default function GroupsBrowserPage() {
             actionLabel = isHe ? 'צא מהמתנה' : 'Leave Waitlist';
             btnClass = 'btn-secondary';
           } else {
-            actionLabel = isFull ? (isHe ? 'רשימת המתנה' : 'Join Waitlist') : (isHe ? 'הצטרפות' : 'Join Group');
+            actionLabel = isFull ? (isHe ? 'רשימת המתנה' : 'Join Waitlist') : (isHe ? 'הצטרפות לקבוצה' : 'Join Group');
             if (isFull) btnClass = 'btn-secondary'; 
           }
 
           return (
             <div key={group.id} className="glass-card" style={{ 
-              display: 'flex', flexDirection: 'column', padding: '1.8rem', 
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', position: 'relative', overflow: 'hidden',
-              border: isFull ? '1px solid rgba(0,0,0,0.05)' : '1px solid rgba(138, 99, 210, 0.2)',
-              boxShadow: '0 8px 32px rgba(138, 99, 210, 0.05)',
-              transform: 'translateY(0)'
+              display: 'flex', flexDirection: 'column', padding: '2.2rem', 
+              transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)', position: 'relative', overflow: 'hidden',
+              border: '1px solid rgba(255, 255, 255, 0.6)',
+              background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%)',
+              boxShadow: '0 15px 35px rgba(138, 99, 210, 0.1)',
+              borderRadius: '28px',
+              height: '100%'
             }}>
-              {/* Top Banner Status */}
-              <div style={{ position: 'absolute', top: '15px', right: isHe ? 'auto' : '15px', left: isHe ? '15px' : 'auto', zIndex: 2 }}>
+              {/* Status Badge */}
+              <div style={{ position: 'absolute', top: '20px', right: isHe ? 'auto' : '20px', left: isHe ? '20px' : 'auto', zIndex: 2 }}>
                 {isFull ? (
-                  <span style={{ background: '#FFF5F5', color: '#E53E3E', padding: '0.4rem 0.8rem', borderRadius: '2rem', fontSize: '0.7rem', fontWeight: '800', border: '1px solid rgba(229, 62, 62, 0.15)', boxShadow: '0 2px 4px rgba(229, 62, 62, 0.1)' }}>
-                    {isHe ? 'קבוצה מלאה 🔒' : 'FULL 🔒'}
+                  <span style={{ 
+                    background: 'linear-gradient(135deg, #FF7676, #E53E3E)', color: 'white', 
+                    padding: '0.5rem 1rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '900', 
+                    boxShadow: '0 4px 12px rgba(229, 62, 62, 0.2)' 
+                  }}>
+                    {isHe ? 'התמלאה 🔒' : 'FULL 🔒'}
                   </span>
                 ) : (
-                  <span style={{ background: '#F0FFF4', color: '#38A169', padding: '0.4rem 0.8rem', borderRadius: '2rem', fontSize: '0.7rem', fontWeight: '800', border: '1px solid rgba(56, 161, 105, 0.15)', boxShadow: '0 2px 4px rgba(56, 161, 105, 0.1)' }}>
-                    {isHe ? `נותרו ${group.maxMembers - group.members.length} מקומות` : `${group.maxMembers - group.members.length} SPOTS LEFT`}
+                  <span style={{ 
+                    background: 'linear-gradient(135deg, #6FCF97, #27AE60)', color: 'white', 
+                    padding: '0.5rem 1rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '900',
+                    boxShadow: '0 4px 12px rgba(39, 174, 96, 0.2)'
+                  }}>
+                    {isHe ? `פנוי: ${group.maxMembers - group.members.length}` : `OPEN: ${group.maxMembers - group.members.length}`}
                   </span>
                 )}
               </div>
 
-              <div style={{ marginBottom: '1.2rem', marginTop: '1.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
-                  <span style={{ fontSize: '0.7rem', fontWeight: 'bold', color: 'var(--primary-color)', background: 'rgba(138, 99, 210, 0.1)', padding: '0.2rem 0.6rem', borderRadius: '4px', textTransform: 'uppercase' }}>
+              <div style={{ marginBottom: '1.5rem', marginTop: '1.8rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.8rem' }}>
+                  <span style={{ 
+                    fontSize: '0.75rem', fontWeight: '900', color: 'white', 
+                    background: 'var(--primary-color)', padding: '0.4rem 0.8rem', borderRadius: '10px', 
+                    letterSpacing: '0.5px' 
+                  }}>
                     {isHe ? 'קורס' : 'Course'}: {group.course}
                   </span>
                 </div>
-                <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.5rem', color: 'var(--primary-dark)', fontWeight: '800', lineHeight: 1.2 }}>
+                <h3 style={{ margin: '0 0 1.2rem 0', fontSize: '1.8rem', color: 'var(--primary-dark)', fontWeight: '900', lineHeight: 1.15 }}>
                   {group.title}
                 </h3>
                 
-                <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
                   {group.degree && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8rem', color: '#666', background: 'rgba(0,0,0,0.03)', padding: '0.2rem 0.6rem', borderRadius: '6px', fontWeight: '500' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--primary-dark)', background: '#F4F0FF', padding: '0.4rem 0.8rem', borderRadius: '12px', fontWeight: '700' }}>
                       🎓 {t.degrees[group.degree as keyof typeof t.degrees] || group.degree}
                     </div>
                   )}
                   {group.year && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8rem', color: '#666', background: 'rgba(0,0,0,0.03)', padding: '0.2rem 0.6rem', borderRadius: '6px', fontWeight: '500' }}>
-                      🗓️ {isHe ? 'שנה' : 'Year'} {t.years[group.year as keyof typeof t.years] || group.year.replace('year', '')}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--primary-dark)', background: '#F4F0FF', padding: '0.4rem 0.8rem', borderRadius: '12px', fontWeight: '700' }}>
+                      🗓️ {t.years[group.year as keyof typeof t.years] || group.year.replace('year', '')}
                     </div>
                   )}
                 </div>
               </div>
 
-              <div style={{ flex: 1, marginBottom: '1.5rem' }}>
+              <div style={{ flex: 1, marginBottom: '2rem' }}>
                 <div style={{ 
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.4) 100%)', 
-                  padding: '1.2rem', borderRadius: '16px', border: '1px solid rgba(138, 99, 210, 0.1)',
-                  fontSize: '0.9rem', color: 'var(--text-main)', lineHeight: 1.6, position: 'relative'
+                  background: 'rgba(255, 255, 255, 0.6)', 
+                  padding: '1.4rem', borderRadius: '20px', border: '1px solid rgba(138, 99, 210, 0.08)',
+                  fontSize: '1rem', color: 'var(--text-main)', lineHeight: 1.6, position: 'relative',
+                  fontStyle: group.description ? 'normal' : 'italic', opacity: group.description ? 1 : 0.6
                 }}>
-                  {group.description}
+                  {group.description || (isHe ? 'אין תיאור לקבוצה זו...' : 'No description provided...')}
                 </div>
               </div>
               
-              <div style={{ borderTop: '1px solid rgba(138, 99, 210, 0.1)', paddingTop: '1.2rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', boxShadow: '0 4px 12px rgba(138, 99, 210, 0.15)' }}>👑</div>
+              <div style={{ borderTop: '2px dashed rgba(138, 99, 210, 0.12)', paddingTop: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ 
+                      width: '44px', height: '44px', borderRadius: '16px', background: 'white', 
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', 
+                      boxShadow: '0 6px 15px rgba(138, 99, 210, 0.15)', border: '1px solid rgba(138, 99, 210, 0.1)'
+                    }}>👑</div>
                     <div>
-                      <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--primary-dark)' }}>{group.manager}</p>
-                      <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>{isHe ? 'מנהל הקבוצה' : 'Group Manager'}</p>
+                      <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: '900', color: 'var(--primary-dark)' }}>{group.manager}</p>
+                      <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '700' }}>{isHe ? 'מנהל/ת הקבוצה' : 'Group Manager'}</p>
                     </div>
                   </div>
                   <div 
                     onClick={() => setSelectedParticipants(group.members)}
-                    style={{ textAlign: isHe ? 'left' : 'right', cursor: 'pointer', padding: '0.4rem 0.8rem', borderRadius: '10px', transition: 'background 0.2s' }}
+                    style={{ 
+                      textAlign: isHe ? 'left' : 'right', cursor: 'pointer', padding: '0.6rem 1rem', 
+                      borderRadius: '16px', transition: 'all 0.2s', background: 'rgba(138, 99, 210, 0.05)'
+                    }}
                     className="hover-bg-light"
                   >
-                    <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: 'var(--primary-color)' }}>{group.members.length} / {group.maxMembers}</p>
-                    <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>{isHe ? 'משתתפים 👥' : 'Participants 👥'}</p>
+                    <p style={{ margin: 0, fontSize: '1rem', fontWeight: '900', color: 'var(--primary-color)' }}>{group.members.length} / {group.maxMembers}</p>
+                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '800' }}>{isHe ? 'משתתפים 👥' : 'Joiners 👥'}</p>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.9)', padding: '1rem', borderRadius: '14px', border: '1px solid rgba(138, 99, 210, 0.1)', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
-                  <span style={{ fontSize: '0.8rem', fontWeight: '800', color: (group.dateStr && group.dateStr !== 'TBD') ? 'var(--primary-color)' : '#999' }}>
-                    {(group.dateStr && group.dateStr !== 'TBD' && group.dateStr !== 'טרם נקבע') ? `🕒 ${group.dateStr}` : (isHe ? '🕒 מועד גמיש' : '🕒 Flexible Time')}
+                <div style={{ 
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+                  background: 'white', padding: '1.2rem', borderRadius: '20px', 
+                  boxShadow: '0 8px 25px rgba(0,0,0,0.02)', border: '1px solid rgba(138, 99, 210, 0.08)' 
+                }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: '900', color: 'var(--primary-dark)' }}>
+                    {prettyDate(group.dateStr)}
                   </span>
-                  <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
                     {group.joinedStatus === 'approved' ? (
                       <>
                          <button 
                           onClick={() => handleActionClick(group.id)} 
-                          style={{ background: 'none', border: 'none', color: '#FF5252', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold', padding: '0.4rem' }}
+                          style={{ background: 'none', border: 'none', color: '#FF5252', fontSize: '0.85rem', cursor: 'pointer', fontWeight: '900', padding: '0.5rem' }}
                         >
                           {isHe ? 'עזוב' : 'Leave'}
                         </button>
                         <button 
                           onClick={() => router.push('/groups/' + group.id)} 
                           className="btn-primary" 
-                          style={{ padding: '0.5rem 1.2rem', fontSize: '0.85rem', fontWeight: '800', borderRadius: '10px', boxShadow: '0 4px 12px rgba(138, 99, 210, 0.3)' }}
+                          style={{ padding: '0.6rem 1.4rem', fontSize: '0.9rem', fontWeight: '900', borderRadius: '14px', boxShadow: '0 8px 20px rgba(138, 99, 210, 0.3)' }}
                         >
                           {actionLabel}
                         </button>
@@ -410,7 +450,7 @@ export default function GroupsBrowserPage() {
                     ) : (
                       <button 
                         className={btnClass} 
-                        style={{ padding: '0.5rem 1.5rem', fontSize: '0.85rem', fontWeight: '800', borderRadius: '10px' }} 
+                        style={{ padding: '0.7rem 1.8rem', fontSize: '0.9rem', fontWeight: '900', borderRadius: '14px' }} 
                         onClick={() => handleActionClick(group.id)}
                       >
                          {actionLabel}
@@ -426,33 +466,33 @@ export default function GroupsBrowserPage() {
  
       {/* Participant Modal */}
       {selectedParticipants && (
-        <div className="modal-overlay" onClick={() => setSelectedParticipants(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-            <h3 style={{ margin: '0 0 1.5rem 0', color: 'var(--primary-dark)', fontSize: '1.5rem', textAlign: 'center' }}>
-              {isHe ? 'משתתפים בקבוצה' : 'Group Participants'}
+        <div className="modal-overlay" style={{ backdropFilter: 'blur(15px)' }} onClick={() => setSelectedParticipants(null)}>
+          <div className="modal-content glass-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px', borderRadius: '32px', padding: '2.5rem' }}>
+            <h3 style={{ margin: '0 0 2rem 0', color: 'var(--primary-dark)', fontSize: '2rem', textAlign: 'center', fontFamily: '"DynaPuff", cursive' }}>
+              {isHe ? 'משתתפי הקבוצה' : 'Group Members'}
             </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {selectedParticipants.map(participant => (
-                <div key={participant.id} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.8rem', background: 'rgba(138, 99, 210, 0.05)', borderRadius: '12px' }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>👤</div>
-                  <span style={{ fontWeight: '600', flex: 1 }}>{participant.name}</span>
+                <div key={participant.id} style={{ display: 'flex', alignItems: 'center', gap: '1.2rem', padding: '1rem', background: 'rgba(138, 99, 210, 0.04)', borderRadius: '18px', border: '1px solid rgba(138, 99, 210, 0.1)' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>👤</div>
+                  <span style={{ fontWeight: '800', flex: 1, fontSize: '1.1rem', color: 'var(--primary-dark)' }}>{participant.name}</span>
                   {groups.find(g => g.members.some(m => m.id === participant.id))?.managerId === participant.id && (
-                     <span style={{ fontSize: '0.7rem', background: 'var(--primary-color)', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '2rem' }}>{isHe ? 'מנהל/ת הקבוצה' : 'Group Manager'}</span>
+                     <span style={{ fontSize: '0.75rem', background: 'var(--primary-color)', color: 'white', padding: '0.4rem 0.8rem', borderRadius: '2rem', fontWeight: '900' }}>{isHe ? 'מנהל/ת הקבוצה' : 'Group Manager'}</span>
                   )}
                 </div>
               ))}
             </div>
-            <button className="btn-primary" style={{ marginTop: '2rem', width: '100%' }} onClick={() => setSelectedParticipants(null)}>
-               {isHe ? 'סגור' : 'Close'}
+            <button className="btn-primary" style={{ marginTop: '2.5rem', width: '100%', padding: '1rem', borderRadius: '16px' }} onClick={() => setSelectedParticipants(null)}>
+               {isHe ? 'סגירה' : 'Close'}
             </button>
           </div>
         </div>
       )}
 
       {groups.length === 0 && !isLoading && (
-        <div style={{ textAlign: 'center', padding: '4rem', background: 'rgba(0,0,0,0.02)', borderRadius: '16px', border: '1px dashed rgba(0,0,0,0.1)', marginTop: '2rem' }}>
-          <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>
-            {isHe ? 'אין עדיין קבוצות למידה פעילות. תהיה הראשון לפתוח אחת!' : 'No active study groups yet. Be the first to start one!'}
+        <div style={{ textAlign: 'center', padding: '6rem', background: 'rgba(255,255,255,0.4)', borderRadius: '32px', border: '2px dashed rgba(138, 99, 210, 0.2)', marginTop: '3rem' }}>
+          <p style={{ color: 'var(--primary-dark)', fontSize: '1.4rem', fontWeight: '800' }}>
+            {isHe ? 'עוד אין קבוצות פעילות. תהיה הראשון לפתוח אחת! 🚀' : 'No active study groups yet. Start the first one! 🚀'}
           </p>
         </div>
       )}
