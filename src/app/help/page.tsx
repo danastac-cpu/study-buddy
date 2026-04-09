@@ -44,6 +44,7 @@ export default function HelpCenterPage() {
           urgency: r.urgency_level === 'today' ? (isHe ? 'היום!' : 'Today!') : (r.urgency_level === 'this_week' ? (isHe ? 'השבוע' : 'This Week') : (isHe ? 'גמיש' : 'Flexible')),
           duration: r.duration_mins ? `${r.duration_mins}m` : '', 
           course: r.course || r.course_name, 
+          dateStr: r.date_str,
           isOwn: r.requester_id === user_id_temp || r.requester_id === userData?.user?.id,
           user_id: r.requester_id
         }));
@@ -261,6 +262,11 @@ export default function HelpCenterPage() {
                   <span style={{ background: req.urgency.includes('דחוף') || req.urgency.includes('Urgent') ? '#ffe0e0' : (req.urgency.includes('השבוע') || req.urgency.includes('Week') ? '#fff3e0' : '#e0ffe0'), color: req.urgency.includes('דחוף') || req.urgency.includes('Urgent') ? '#cc0000' : (req.urgency.includes('השבוע') || req.urgency.includes('Week') ? '#e65100' : '#008000'), padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>
                     {req.urgency.includes('דחוף') || req.urgency.includes('Urgent') ? '🚨 ' : '📅 '} {req.urgency}
                   </span>
+                  {req.dateStr && req.dateStr !== 'TBD' && (
+                    <span style={{ background: '#F3E5F5', color: '#7B1FA2', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                      🕒 {isHe ? 'מועד מועדף:' : 'Preferred:'} {req.dateStr}
+                    </span>
+                  )}
                 </div>
                 {editingId === req.id ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>

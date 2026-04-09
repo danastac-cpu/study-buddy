@@ -26,6 +26,7 @@ export default function DashboardPage() {
   // Real Profile State
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [allUserHelpRequests, setAllUserHelpRequests] = useState<any[]>([]);
   const [acceptedGroups, setAcceptedGroups] = useState<any[]>([]);
   const [activeHelpSessions, setActiveHelpSessions] = useState<any[]>([]);
 
@@ -108,21 +109,24 @@ export default function DashboardPage() {
         // 4. Fetch Active Help Sessions (1-on-1 Chats)
         const { data: helpData } = await supabase
           .from('help_requests')
-          .select('*, profiles:user_id(alias, avatar_base, avatar_bg), helper_profile:helper_id(alias, avatar_base, avatar_bg)')
-          .or(`user_id.eq.${authData.user.id},helper_id.eq.${authData.user.id}`)
+          .select('*, profiles:profiles!requester_id(alias, avatar_base, avatar_bg), helper_profile:profiles!helper_id(alias, avatar_base, avatar_bg)')
+          .or(`requester_id.eq.${authData.user.id},helper_id.eq.${authData.user.id}`)
           .not('status', 'eq', 'resolved');
 
         if (helpData) {
-          setActiveHelpSessions(helpData.map(h => {
-            const isRequester = h.user_id === authData.user.id;
+          const activeHelp = helpData.map(h => {
+            const isRequester = h.requester_id === authData.user.id;
             const otherParty = isRequester ? h.helper_profile : h.profiles;
             return {
               id: h.id,
-              topic: h.course_name,
+              topic: h.course_name || h.course,
               otherName: otherParty?.alias || (isHe ? 'ממתין לעוזר...' : 'Waiting for helper...'),
-              isRequester
+              isRequester,
+              status: h.status
             };
-          }));
+          });
+          setActiveHelpSessions(activeHelp.filter(h => h.status === 'offered'));
+          setAllUserHelpRequests(helpData);
         }
 
         // 5. Fetch User's Latest Feed Post
@@ -135,8 +139,9 @@ export default function DashboardPage() {
           .maybeSingle(); // Better than single() if 0 or 1 expected
 
         if (latestPost) {
+          const content = latestPost.text || latestPost.content || '';
           setUserLatestPost({
-            text: latestPost.text || latestPost.content,
+            text: content,
             commentCount: latestPost.feed_comments?.length || 0,
             id: latestPost.id
           });
@@ -477,7 +482,9 @@ export default function DashboardPage() {
             <h3 style={{ fontSize: '1rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
               {isHe ? 'בקשות עזרה' : 'Help Requests'}
             </h3>
-            <p style={{ fontSize: '2.5rem', fontWeight: '800', fontFamily: '"DynaPuff", cursive', color: 'var(--primary-color)', margin: 0 }}>{activeHelpSessions.length}</p>
+            <p style={{ fontSize: '2.5rem', fontWeight: '800', fontFamily: '"DynaPuff", cursive', color: 'var(--primary-color)', margin: 0 }}>
+              {allUserHelpRequests.filter(h => h.status !== 'resolved').length}
+            </p>
           </div>
           <div className="glass-card tooltip-container" style={{ background: 'var(--primary-color)', color: 'white' }}>
             <h3 style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.8)', marginBottom: '0.5rem' }}>
@@ -579,7 +586,7 @@ export default function DashboardPage() {
                   </h3>
                   <p style={{ color: 'var(--text-main)', margin: '0.2rem 0', fontSize: '0.95rem', fontWeight: '500' }}>
                     {userLatestPost
-                      ? (userLatestPost.text.length > 40 ? userLatestPost.text.substring(0, 40) + '...' : userLatestPost.text)
+                      ? (userLatestPost.text?.length > 40 ? userLatestPost.text.substring(0, 40) + '...' : (userLatestPost.text || ''))
                       : (isHe ? 'עדיין לא פרסמת בפיד. בואו לשתף משהו!' : 'No posts yet. Share something with the community!')}
                   </p>
                   {userLatestPost && (
@@ -602,67 +609,100 @@ export default function DashboardPage() {
               {isHe ? 'עדכונים חשובים' : 'Important Updates'}
             </h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {notifications.map(notif => (
-                <div key={notif.id} className="glass-card" style={{
-                  border: notif.type === 'approval' ? '2px dashed #ff9800' : (notif.type === 'helper-approved' ? '2px solid var(--primary-color)' : '2px solid #F44336'),
-                  background: notif.type === 'approval' ? 'rgba(255, 152, 0, 0.05)' : (notif.type === 'helper-approved' ? 'rgba(138, 99, 210, 0.05)' : 'rgba(244, 67, 54, 0.05)'),
-                  boxShadow: notif.type === 'helper-approved' ? '0 0 15px rgba(138, 99, 210, 0.4)' : undefined,
-                  animation: notif.type === 'helper-approved' ? 'pulse-glow 2s infinite' : undefined
-                }}>
-                  <style>{`
-                    @keyframes pulse-glow {
-                      0% { box-shadow: 0 0 5px rgba(138, 99, 210, 0.2); }
-                      50% { box-shadow: 0 0 20px rgba(138, 99, 210, 0.6); }
-                      100% { box-shadow: 0 0 5px rgba(138, 99, 210, 0.2); }
-                    }
-                  `}</style>
-                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                    <div style={{ fontSize: '2rem' }}>{notif.type === 'approval' ? '🔔' : (notif.type === 'helper-approved' ? '✨' : '⏳')}</div>
-                    <div style={{ flex: 1 }}>
-                      <h3 style={{ margin: '0 0 0.5rem 0', color: notif.type === 'approval' ? '#e65100' : (notif.type === 'helper-approved' ? 'var(--primary-color)' : '#F44336') }}>
-                        {isHe ? notif.titleHe : notif.titleEn}
-                      </h3>
-                      <p style={{ margin: 0, color: 'var(--text-main)', fontSize: '0.95rem' }}>
-                        {isHe ? notif.contentHe : notif.contentEn}
-                      </p>
-                      <div style={{ marginTop: '1rem', display: 'flex', gap: '0.8rem' }}>
-                        {notif.type === 'approval' ? (
-                          <>
-                            <button onClick={() => router.push('/chat/chat_123?role=requester')} className="btn-primary" style={{ background: '#4CAF50', padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
-                              {isHe ? 'אשר והתחל צ׳אט' : 'Accept & Chat'}
+              {notifications.map(notif => {
+                let cardBg = 'rgba(255, 255, 255, 0.8)';
+                let cardBorder = '1px solid rgba(138, 99, 210, 0.1)';
+                let icon = '🔔';
+                let accentColor = '#8A63D2';
+
+                if (notif.type === 'approval' || notif.type === 'help') {
+                   cardBg = 'rgba(76, 175, 80, 0.05)';
+                   cardBorder = '1px solid rgba(76, 175, 80, 0.2)';
+                   icon = '👋';
+                   accentColor = '#4CAF50';
+                } else if (notif.type === 'new-member' || notif.type === 'helper-approved') {
+                   cardBg = 'rgba(33, 150, 243, 0.05)';
+                   cardBorder = '1px solid rgba(33, 150, 243, 0.2)';
+                   icon = '✨';
+                   accentColor = '#2196F3';
+                } else if (notif.type === 'reschedule') {
+                   cardBg = 'rgba(255, 193, 7, 0.05)';
+                   cardBorder = '1px solid rgba(255, 193, 7, 0.3)';
+                   icon = '⏳';
+                   accentColor = '#FFC107';
+                } else if (notif.type === 'waitlist') {
+                   cardBg = 'rgba(255, 152, 0, 0.05)';
+                   cardBorder = '1px solid rgba(255, 152, 0, 0.2)';
+                   icon = '⌛';
+                   accentColor = '#FF9800';
+                }
+
+                return (
+                  <div key={notif.id} className="glass-card" style={{
+                    border: cardBorder,
+                    background: cardBg,
+                    boxShadow: notif.type === 'helper-approved' ? '0 0 15px rgba(33, 150, 243, 0.3)' : undefined,
+                    animation: notif.type === 'helper-approved' ? 'pulse-glow-blue 2s infinite' : undefined
+                  }}>
+                    <style>{`
+                      @keyframes pulse-glow-blue {
+                        0% { box-shadow: 0 0 5px rgba(33, 150, 243, 0.2); }
+                        50% { box-shadow: 0 0 20px rgba(33, 150, 243, 0.6); }
+                        100% { box-shadow: 0 0 5px rgba(33, 150, 243, 0.2); }
+                      }
+                    `}</style>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                      <div style={{ fontSize: '2.2rem' }}>{icon}</div>
+                      <div style={{ flex: 1 }}>
+                        <h3 style={{ margin: '0 0 0.5rem 0', color: accentColor, fontWeight: '800' }}>
+                          {isHe ? notif.titleHe : notif.titleEn}
+                        </h3>
+                        <p style={{ margin: 0, color: 'var(--text-main)', fontSize: '0.95rem', fontWeight: '500' }}>
+                          {isHe ? notif.contentHe : notif.contentEn}
+                        </p>
+                        <div style={{ marginTop: '1.2rem', display: 'flex', gap: '0.8rem' }}>
+                          {notif.type === 'approval' || notif.type === 'help' ? (
+                            <>
+                              <button onClick={() => router.push(`/chat/${notif.requestId}?role=requester`)} className="btn-primary" style={{ background: '#4CAF50', padding: '0.6rem 1.2rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                                {isHe ? 'אשר פרטים ולך לצ׳אט!' : 'Approve & Go to Chat!'}
+                              </button>
+                              <button onClick={() => handleDeclineUpdate(notif.id, notif.requestId)} className="btn-secondary" style={{ padding: '0.6rem 1rem', fontSize: '0.9rem' }}>
+                                {isHe ? 'דחה' : 'Decline'}
+                              </button>
+                            </>
+                          ) : notif.type === 'helper-approved' ? (
+                            <button onClick={() => router.push(`/chat/${notif.requestId}?role=helper`)} className="btn-primary" style={{ background: '#2196F3', padding: '0.6rem 1.5rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                              {isHe ? 'לך לצ׳אט' : 'Go to Chat'}
                             </button>
-                            <button onClick={() => handleDeclineUpdate(notif.id, notif.requestId)} className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
-                              {isHe ? 'דחה' : 'Decline'}
-                            </button>
-                          </>
-                        ) : notif.type === 'helper-approved' ? (
-                          <button onClick={() => router.push('/chat/chat_123?role=helper')} className="btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
-                            {isHe ? 'כנס לצ׳אט עם המבקש' : 'Enter Chat with Student'}
-                          </button>
-                        ) : notif.type === 'waiting-list-open' ? (
-                          <>
-                            <button onClick={() => handleWaitlistAccept(notif.id, notif.groupId || '')} className="btn-primary" style={{ background: '#4CAF50', padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
-                              {isHe ? 'המשך לצאט של הקבוצה' : 'Continue to Group Chat'}
-                            </button>
-                            <button onClick={() => handleWaitlistDecline(notif.id)} className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
-                              {isHe ? 'דחה' : 'Decline'}
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button className="btn-primary" style={{ background: '#4CAF50', padding: '0.5rem 1rem', fontSize: '0.9rem' }} onClick={() => setShowRescheduleModal(true)}>
-                              {isHe ? 'כן, עדכן זמנים' : 'Yes, Update Times'}
-                            </button>
-                            <button onClick={() => handleDeleteRequestUpdate(notif.id, notif.requestId)} className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
-                              {isHe ? 'לא, מחק בקשה' : 'No, Delete Request'}
-                            </button>
-                          </>
-                        )}
+                          ) : notif.type === 'reschedule' ? (
+                            <>
+                              <button className="btn-primary" style={{ background: '#FFC107', color: 'black', padding: '0.6rem 1.2rem', fontSize: '0.9rem', fontWeight: 'bold' }} onClick={() => setShowRescheduleModal(true)}>
+                                {isHe ? 'כן, עדכן' : 'Yes, Update'}
+                              </button>
+                              <button onClick={() => handleDeleteRequestUpdate(notif.id, notif.requestId)} className="btn-secondary" style={{ padding: '0.6rem 1rem', fontSize: '0.9rem' }}>
+                                {isHe ? 'דחה' : 'Decline'}
+                              </button>
+                            </>
+                          ) : notif.type === 'waiting-list-open' ? (
+                            <>
+                              <button onClick={() => handleWaitlistAccept(notif.id, notif.groupId || '')} className="btn-primary" style={{ background: '#4CAF50', padding: '0.6rem 1.2rem', fontSize: '0.9rem' }}>
+                                {isHe ? 'המשך לצאט של הקבוצה' : 'Continue to Group Chat'}
+                              </button>
+                              <button onClick={() => handleWaitlistDecline(notif.id)} className="btn-secondary" style={{ padding: '0.6rem 1rem', fontSize: '0.9rem' }}>
+                                {isHe ? 'דחה' : 'Decline'}
+                              </button>
+                            </>
+                          ) : (
+                             <button onClick={() => handleDeclineUpdate(notif.id, '')} className="btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
+                               {isHe ? 'הבנתי' : 'Got it'}
+                             </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
         )}

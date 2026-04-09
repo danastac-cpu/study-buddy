@@ -16,6 +16,7 @@ interface StudyGroup {
   dateStr: string;
   description: string;
   manager: string;
+  managerId: string;
   maxMembers: number;
   members: { name: string, id: string }[];
   waitlist: { name: string, id: string }[];
@@ -35,6 +36,7 @@ export default function GroupsBrowserPage() {
   const [groups, setGroups] = useState<StudyGroup[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedParticipants, setSelectedParticipants] = useState<{ id: string, name: string }[] | null>(null);
 
   const fetchGroups = async () => {
     const { data: authData } = await supabase.auth.getUser();
@@ -87,6 +89,7 @@ export default function GroupsBrowserPage() {
           dateStr: g.session_time,
           description: rawDesc,
           manager: g.profiles?.real_first_name || g.profiles?.alias || 'Manager',
+          managerId: g.manager_id,
           maxMembers: g.max_capacity,
           members: approved,
           waitlist: waiting,
@@ -293,57 +296,62 @@ export default function GroupsBrowserPage() {
           })
           .map((group) => {
           const isFull = group.members.length >= group.maxMembers;
+          const isManager = group.managerId === currentUser?.id;
           
           let actionLabel = '';
           let btnClass = 'btn-primary';
 
           if (group.joinedStatus === 'approved') {
-            actionLabel = isHe ? 'עזוב קבוצה' : 'Leave Group';
-            btnClass = 'btn-secondary';
+            actionLabel = isHe ? (isManager ? 'עבור לצאט' : 'הצטרפת! כנס לצ׳אט') : (isManager ? 'Go to Chat' : 'Joined! Go to Chat');
+            btnClass = 'btn-primary';
           } else if (group.joinedStatus === 'waiting') {
             actionLabel = isHe ? 'צא מהמתנה' : 'Leave Waitlist';
             btnClass = 'btn-secondary';
           } else {
             actionLabel = isFull ? (isHe ? 'רשימת המתנה' : 'Join Waitlist') : (isHe ? 'הצטרפות' : 'Join Group');
-            if (isFull) btnClass = 'btn-secondary'; // Waitlist is less "primary" than joining
+            if (isFull) btnClass = 'btn-secondary'; 
           }
 
           return (
             <div key={group.id} className="glass-card" style={{ 
-              display: 'flex', flexDirection: 'column', padding: '1.5rem', 
-              transition: 'all 0.3s ease', position: 'relative', overflow: 'hidden',
-              border: isFull ? '1px solid rgba(0,0,0,0.05)' : '1px solid var(--primary-light)'
+              display: 'flex', flexDirection: 'column', padding: '1.8rem', 
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', position: 'relative', overflow: 'hidden',
+              border: isFull ? '1px solid rgba(0,0,0,0.05)' : '1px solid rgba(138, 99, 210, 0.2)',
+              boxShadow: '0 8px 32px rgba(138, 99, 210, 0.05)',
+              transform: 'translateY(0)'
             }}>
               {/* Top Banner Status */}
-              <div style={{ position: 'absolute', top: '12px', right: isHe ? 'auto' : '12px', left: isHe ? '12px' : 'auto' }}>
+              <div style={{ position: 'absolute', top: '15px', right: isHe ? 'auto' : '15px', left: isHe ? '15px' : 'auto', zIndex: 2 }}>
                 {isFull ? (
-                  <span style={{ background: '#FFF5F5', color: '#E53E3E', padding: '0.3rem 0.7rem', borderRadius: '2rem', fontSize: '0.75rem', fontWeight: '800', border: '1px solid rgba(229, 62, 62, 0.2)' }}>
+                  <span style={{ background: '#FFF5F5', color: '#E53E3E', padding: '0.4rem 0.8rem', borderRadius: '2rem', fontSize: '0.7rem', fontWeight: '800', border: '1px solid rgba(229, 62, 62, 0.15)', boxShadow: '0 2px 4px rgba(229, 62, 62, 0.1)' }}>
                     {isHe ? 'קבוצה מלאה 🔒' : 'FULL 🔒'}
                   </span>
                 ) : (
-                  <span style={{ background: '#F0FFF4', color: '#38A169', padding: '0.3rem 0.7rem', borderRadius: '2rem', fontSize: '0.75rem', fontWeight: '800', border: '1px solid rgba(56, 161, 105, 0.2)' }}>
+                  <span style={{ background: '#F0FFF4', color: '#38A169', padding: '0.4rem 0.8rem', borderRadius: '2rem', fontSize: '0.7rem', fontWeight: '800', border: '1px solid rgba(56, 161, 105, 0.15)', boxShadow: '0 2px 4px rgba(56, 161, 105, 0.1)' }}>
                     {isHe ? `נותרו ${group.maxMembers - group.members.length} מקומות` : `${group.maxMembers - group.members.length} SPOTS LEFT`}
                   </span>
                 )}
               </div>
 
               <div style={{ marginBottom: '1.2rem', marginTop: '1.5rem' }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  {group.course}
-                </span>
-                <h3 style={{ margin: '0.3rem 0 0.8rem 0', fontSize: '1.4rem', color: 'var(--primary-dark)', fontWeight: '800', lineHeight: 1.2 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 'bold', color: 'var(--primary-color)', background: 'rgba(138, 99, 210, 0.1)', padding: '0.2rem 0.6rem', borderRadius: '4px', textTransform: 'uppercase' }}>
+                    {isHe ? 'קורס' : 'Course'}: {group.course}
+                  </span>
+                </div>
+                <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.5rem', color: 'var(--primary-dark)', fontWeight: '800', lineHeight: 1.2 }}>
                   {group.title}
                 </h3>
                 
-                <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
                   {group.degree && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.85rem', color: 'var(--text-muted)', background: 'rgba(0,0,0,0.03)', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
-                      🎓 {group.degree}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8rem', color: '#666', background: 'rgba(0,0,0,0.03)', padding: '0.2rem 0.6rem', borderRadius: '6px', fontWeight: '500' }}>
+                      🎓 {t.degrees[group.degree as keyof typeof t.degrees] || group.degree}
                     </div>
                   )}
                   {group.year && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.85rem', color: 'var(--text-muted)', background: 'rgba(0,0,0,0.03)', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
-                      📅 {isHe ? 'שנה' : 'Year'} {String(group.year).replace('year', '')}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8rem', color: '#666', background: 'rgba(0,0,0,0.03)', padding: '0.2rem 0.6rem', borderRadius: '6px', fontWeight: '500' }}>
+                      🗓️ {isHe ? 'שנה' : 'Year'} {t.years[group.year as keyof typeof t.years] || group.year.replace('year', '')}
                     </div>
                   )}
                 </div>
@@ -351,46 +359,60 @@ export default function GroupsBrowserPage() {
 
               <div style={{ flex: 1, marginBottom: '1.5rem' }}>
                 <div style={{ 
-                  background: 'linear-gradient(135deg, rgba(138, 99, 210, 0.05) 0%, rgba(138, 99, 210, 0.01) 100%)', 
-                  padding: '1rem', borderRadius: '12px', border: '1px solid rgba(138, 99, 210, 0.1)',
-                  fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: 1.6, position: 'relative'
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.4) 100%)', 
+                  padding: '1.2rem', borderRadius: '16px', border: '1px solid rgba(138, 99, 210, 0.1)',
+                  fontSize: '0.9rem', color: 'var(--text-main)', lineHeight: 1.6, position: 'relative'
                 }}>
-                  <span style={{ position: 'absolute', top: '-10px', left: isHe ? 'auto' : '10px', right: isHe ? '10px' : 'auto', fontSize: '1.5rem', opacity: 0.2 }}>"</span>
                   {group.description}
                 </div>
               </div>
               
-              <div style={{ borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', fontSize: '0.8rem' }}>👑</div>
+              <div style={{ borderTop: '1px solid rgba(138, 99, 210, 0.1)', paddingTop: '1.2rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', boxShadow: '0 4px 12px rgba(138, 99, 210, 0.15)' }}>👑</div>
                     <div>
-                      <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--primary-dark)' }}>{group.manager}</p>
+                      <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--primary-dark)' }}>{group.manager}</p>
                       <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>{isHe ? 'מנהל הקבוצה' : 'Group Manager'}</p>
                     </div>
                   </div>
-                  <div style={{ textAlign: isHe ? 'left' : 'right' }}>
-                    <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 'bold' }}>{group.members.length} / {group.maxMembers}</p>
-                    <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>{isHe ? 'משתתפים' : 'Participants'}</p>
+                  <div 
+                    onClick={() => setSelectedParticipants(group.members)}
+                    style={{ textAlign: isHe ? 'left' : 'right', cursor: 'pointer', padding: '0.4rem 0.8rem', borderRadius: '10px', transition: 'background 0.2s' }}
+                    className="hover-bg-light"
+                  >
+                    <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: 'var(--primary-color)' }}>{group.members.length} / {group.maxMembers}</p>
+                    <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>{isHe ? 'משתתפים 👥' : 'Participants 👥'}</p>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '0.8rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-                  <span style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--primary-color)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.9)', padding: '1rem', borderRadius: '14px', border: '1px solid rgba(138, 99, 210, 0.1)', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: '800', color: (group.dateStr && group.dateStr !== 'TBD') ? 'var(--primary-color)' : '#999' }}>
                     {(group.dateStr && group.dateStr !== 'TBD' && group.dateStr !== 'טרם נקבע') ? `🕒 ${group.dateStr}` : (isHe ? '🕒 מועד גמיש' : '🕒 Flexible Time')}
                   </span>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
                     {group.joinedStatus === 'approved' ? (
                       <>
-                        <button onClick={() => router.push('/groups/' + group.id)} className="btn-primary" style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}>
-                          {isHe ? 'צ׳אט' : 'Chat'}
-                        </button>
-                        <button onClick={() => handleActionClick(group.id)} style={{ background: 'transparent', border: 'none', color: '#F44336', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 'bold' }}>
+                         <button 
+                          onClick={() => handleActionClick(group.id)} 
+                          style={{ background: 'none', border: 'none', color: '#FF5252', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold', padding: '0.4rem' }}
+                        >
                           {isHe ? 'עזוב' : 'Leave'}
+                        </button>
+                        <button 
+                          onClick={() => router.push('/groups/' + group.id)} 
+                          className="btn-primary" 
+                          style={{ padding: '0.5rem 1.2rem', fontSize: '0.85rem', fontWeight: '800', borderRadius: '10px', boxShadow: '0 4px 12px rgba(138, 99, 210, 0.3)' }}
+                        >
+                          {actionLabel}
                         </button>
                       </>
                     ) : (
-                      <button className={btnClass} style={{ padding: '0.4rem 1.2rem', fontSize: '0.85rem', fontWeight: 'bold' }} onClick={() => handleActionClick(group.id)}>
+                      <button 
+                        className={btnClass} 
+                        style={{ padding: '0.5rem 1.5rem', fontSize: '0.85rem', fontWeight: '800', borderRadius: '10px' }} 
+                        onClick={() => handleActionClick(group.id)}
+                      >
                          {actionLabel}
                       </button>
                     )}
@@ -402,6 +424,31 @@ export default function GroupsBrowserPage() {
         })}
       </div>
  
+      {/* Participant Modal */}
+      {selectedParticipants && (
+        <div className="modal-overlay" onClick={() => setSelectedParticipants(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <h3 style={{ margin: '0 0 1.5rem 0', color: 'var(--primary-dark)', fontSize: '1.5rem', textAlign: 'center' }}>
+              {isHe ? 'משתתפים בקבוצה' : 'Group Participants'}
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+              {selectedParticipants.map(participant => (
+                <div key={participant.id} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.8rem', background: 'rgba(138, 99, 210, 0.05)', borderRadius: '12px' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>👤</div>
+                  <span style={{ fontWeight: '600', flex: 1 }}>{participant.name}</span>
+                  {groups.find(g => g.members.some(m => m.id === participant.id))?.managerId === participant.id && (
+                     <span style={{ fontSize: '0.7rem', background: 'var(--primary-color)', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '2rem' }}>{isHe ? 'מנהל/ת הקבוצה' : 'Group Manager'}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button className="btn-primary" style={{ marginTop: '2rem', width: '100%' }} onClick={() => setSelectedParticipants(null)}>
+               {isHe ? 'סגור' : 'Close'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {groups.length === 0 && !isLoading && (
         <div style={{ textAlign: 'center', padding: '4rem', background: 'rgba(0,0,0,0.02)', borderRadius: '16px', border: '1px dashed rgba(0,0,0,0.1)', marginTop: '2rem' }}>
           <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>

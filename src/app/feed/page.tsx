@@ -237,7 +237,9 @@ export default function FeedPage() {
       setReplyText(prev => ({ ...prev, [postId]: '' }));
     } else if (error) {
       console.error('COMMENT ERROR:', error);
-      alert('Error commenting: ' + error.message + '\nCode: ' + error.code);
+      alert(isHe 
+        ? `שגיאה בשליחת התגובה: ${error.message}. ייתכן שמדובר בבעיית הרשאות (RLS).` 
+        : `Error commenting: ${error.message}. This might be an RLS permission issue.`);
     }
   };
 
