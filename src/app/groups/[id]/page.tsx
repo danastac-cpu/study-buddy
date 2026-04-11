@@ -60,7 +60,17 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
       const { data, error } = await supabase.from('study_groups').select('*').eq('id', roomId).single();
       if (!error && data) {
         setSavedTopic(data.title || data.topic);
-        setSavedTimeStr(data.session_time || data.date_str || '');
+        
+        const formatDate = (ds: string) => {
+          if (!ds || ds === 'TBD' || ds === 'טרם נקבע') return isHe ? 'לא נקבע מועד' : 'TBD';
+          try {
+            const d = new Date(ds);
+            if (isNaN(d.getTime())) return ds;
+            return `${d.getDate()}/${d.getMonth() + 1} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+          } catch(e) { return ds; }
+        };
+
+        setSavedTimeStr(formatDate(data.session_time || data.date_str));
         setEditTimeValue(data.session_time || data.date_str || '');
         setSavedCourse(data.course || 'Study Group');
         setSavedManagerId(data.manager_id);
@@ -116,7 +126,15 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
   const handleSaveTime = async () => {
     const { error } = await supabase.from('study_groups').update({ session_time: editTimeValue }).eq('id', roomId);
     if (!error) {
-      setSavedTimeStr(editTimeValue);
+      const formatDate = (ds: string) => {
+        if (!ds || ds === 'TBD' || ds === 'טרם נקבע') return isHe ? 'לא נקבע מועד' : 'TBD';
+        try {
+          const d = new Date(ds);
+          if (isNaN(d.getTime())) return ds;
+          return `${d.getDate()}/${d.getMonth() + 1} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+        } catch(e) { return ds; }
+      };
+      setSavedTimeStr(formatDate(editTimeValue));
       setIsEditingTime(false);
     }
   };
@@ -270,7 +288,9 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
                   </div>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontWeight: '500' }}>{savedTimeStr || (isHe ? 'טרם נקבע' : 'TBD')}</span>
+                    <span style={{ fontWeight: '500', color: (savedTimeStr === 'לא נקבע מועד' || savedTimeStr === 'TBD') ? '#FF9800' : 'inherit' }}>
+                      {savedTimeStr}
+                    </span>
                     {userId === savedManagerId && (
                       <button onClick={() => setIsEditingTime(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem' }} title={isHe ? "ערוך מועד" : "Edit Time"}>✏️</button>
                     )}
@@ -398,12 +418,22 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
                   )}
                   
                   {displayContent.startsWith('__MEDIA_IMAGE__:') ? (
-                    <img 
-                      src={displayContent.split('__MEDIA_IMAGE__:')[1]} 
-                      alt="Uploaded" 
-                      style={{ maxWidth: '100%', borderRadius: '8px', cursor: 'pointer' }} 
-                      onClick={() => window.open(displayContent.split('__MEDIA_IMAGE__:')[1], '_blank')}
-                    />
+                    <div style={{ marginTop: '0.5rem', cursor: 'pointer' }} onClick={() => window.open(displayContent.split('__MEDIA_IMAGE__:')[1], '_blank')}>
+                      <img 
+                        src={displayContent.split('__MEDIA_IMAGE__:')[1]} 
+                        alt="Uploaded" 
+                        style={{ 
+                          maxWidth: '250px', 
+                          maxHeight: '300px', 
+                          borderRadius: '12px', 
+                          border: isMe ? '2px solid rgba(255,255,255,0.2)' : '2px solid rgba(138, 99, 210, 0.1)',
+                          display: 'block'
+                        }} 
+                      />
+                      <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.7rem', opacity: 0.7, textAlign: 'center' }}>
+                         {isHe ? '(לחץ להגדלה 🔍)' : '(Click to enlarge 🔍)'}
+                      </p>
+                    </div>
                   ) : displayContent.startsWith('__MEDIA_FILE__:') ? (
                     (() => {
                       const [name, url] = displayContent.split('__MEDIA_FILE__:')[1].split('|');

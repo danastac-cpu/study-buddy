@@ -392,12 +392,22 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
                     </div>
                   )}
                   {displayContent.startsWith('__MEDIA_IMAGE__:') ? (
-                    <img 
-                      src={displayContent.split('__MEDIA_IMAGE__:')[1]} 
-                      alt="Uploaded" 
-                      style={{ maxWidth: '100%', borderRadius: '8px', cursor: 'pointer' }} 
-                      onClick={() => window.open(displayContent.split('__MEDIA_IMAGE__:')[1], '_blank')}
-                    />
+                    <div style={{ marginTop: '0.5rem', cursor: 'pointer' }} onClick={() => window.open(displayContent.split('__MEDIA_IMAGE__:')[1], '_blank')}>
+                      <img 
+                        src={displayContent.split('__MEDIA_IMAGE__:')[1]} 
+                        alt="Uploaded" 
+                        style={{ 
+                          maxWidth: '250px', 
+                          maxHeight: '300px', 
+                          borderRadius: '12px', 
+                          border: isMe ? '2px solid rgba(255,255,255,0.2)' : '2px solid rgba(138, 99, 210, 0.1)',
+                          display: 'block'
+                        }} 
+                      />
+                      <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.7rem', opacity: 0.7, textAlign: 'center' }}>
+                         {isHe ? '(לחץ להגדלה 🔍)' : '(Click to enlarge 🔍)'}
+                      </p>
+                    </div>
                   ) : displayContent.startsWith('__MEDIA_FILE__:') ? (
                     (() => {
                       const [name, url] = displayContent.split('__MEDIA_FILE__:')[1].split('|');

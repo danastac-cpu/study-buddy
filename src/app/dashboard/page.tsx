@@ -102,8 +102,8 @@ export default function DashboardPage() {
 
         setAcceptedGroups(allGroups.map(g => ({
           id: g.id,
-          title: isHe ? `קבוצה: ${g.topic}` : `Group: ${g.topic}`,
-          details: g.date_str
+          title: isHe ? (g.title || g.topic || 'קבוצה') : (g.title || g.topic || 'Group'),
+          details: g.session_time || g.date_str || (isHe ? 'טרם נקבע' : 'TBD')
         })));
 
         // 4. Fetch Active Help Sessions (1-on-1 Chats)
@@ -126,7 +126,8 @@ export default function DashboardPage() {
             };
           });
           setActiveHelpSessions(activeHelp.filter(h => h.status === 'offered'));
-          setAllUserHelpRequests(helpData);
+          // Only count help requests where I am the requester
+          setAllUserHelpRequests(helpData.filter(h => h.requester_id === authData.user.id));
         }
 
         // 5. Fetch User's Latest Feed Post
