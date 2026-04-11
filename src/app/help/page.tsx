@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/hooks/useLanguage';
 import { translations } from '@/lib/i18n';
-import { ScienceAvatar } from '@/components/ScienceAvatar';
+import { ScienceAvatar, ACCESSORIES } from '@/components/ScienceAvatar';
 import { emailService } from '@/lib/emailService';
 
 export default function HelpCenterPage() {
@@ -26,7 +26,7 @@ export default function HelpCenterPage() {
 
     const { data, error } = await supabase
       .from('help_requests')
-      .select('*, profiles:profiles!requester_id(alias, avatar_base, degree, year, year_of_study)')
+      .select('*, profiles:profiles!requester_id(alias, avatar_base, avatar_accessory, avatar_bg, degree, year, year_of_study)')
       .order('created_at', { ascending: false });
 
     if (!error && data) {
@@ -46,13 +46,15 @@ export default function HelpCenterPage() {
            try {
              const d = new Date(ds);
              if (isNaN(d.getTime())) return ds;
-             return `${d.getDate()}/${d.getMonth() + 1}`;
+             return `${d.getDate()}/${d.getMonth() + 1} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
            } catch(e) { return ds; }
         };
 
         return {
           id: r.id,
           avatarBase: r.profiles?.avatar_base || 'brain',
+          avatarAccessory: r.profiles?.avatar_accessory || 'none',
+          avatarBg: r.profiles?.avatar_bg || '#F3F0FF',
           nickname: r.profiles?.alias || 'Guest',
           degree: (t.degrees[r.profiles?.degree as keyof typeof t.degrees] as string) || r.profiles?.degree || 'Student',
           year: (t.years[r.profiles?.year_of_study as keyof typeof t.years] as string) || (t.years[r.profiles?.year as keyof typeof t.years] as string) || '',
@@ -79,17 +81,12 @@ export default function HelpCenterPage() {
     return () => { supabase.removeChannel(channel); };
   }, [isHe]);
 
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState('');
-
   if (!isReady) return null;
 
   const handleOfferHelpClick = async (postId: string) => {
     if (!userId) return;
     const { error } = await supabase.from('help_requests').update({ status: 'pending', helper_id: userId }).eq('id', postId);
-    if (!error) {
-      fetchData();
-    }
+    if (!error) fetchData();
   };
 
   const handleDeleteRequest = async (postId: string) => {
@@ -100,68 +97,58 @@ export default function HelpCenterPage() {
   };
 
   return (
-    <div className="app-wrapper" style={{ direction: isHe ? 'rtl' : 'ltr', background: '#F9F7FF' }}>
+    <div className="app-wrapper" style={{ direction: isHe ? 'rtl' : 'ltr', background: '#FDFBFF' }}>
       
-      <nav className="sidebar" style={{ background: '#FFF7FF', border: 'none', boxShadow: '10px 0 30px rgba(0,0,0,0.02)' }}>
+      <nav className="sidebar" style={{ background: 'white', borderRight: isHe ? 'none' : '1px solid rgba(0,0,0,0.05)', borderLeft: isHe ? '1px solid rgba(0,0,0,0.05)' : 'none' }}>
         <Link href="/dashboard" className="btn-secondary" style={{ marginBottom: '2.5rem', background: 'white', borderRadius: '15px' }}>
           {isHe ? '← חזרה' : '← Back'}
         </Link>
-        <h2 style={{ fontSize: '2.5rem', marginBottom: '1rem', fontFamily: '"DynaPuff", cursive', color: 'var(--primary-dark)' }}>
+        <h2 style={{ fontSize: '2.4rem', marginBottom: '1rem', fontFamily: '"DynaPuff", cursive', color: 'var(--primary-color)' }}>
           {isHe ? 'מרכז עזרה' : 'Help Center'}
         </h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2.5rem', lineHeight: '1.6' }}>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '2.5rem', lineHeight: '1.6' }}>
           {isHe ? 'מרחב בטוח למציאת עזרה בלימודים.' : 'A safe space to find academic help.'}
         </p>
 
         <ul style={{ listStyle: 'none', padding: 0 }}>
           <li style={{ marginBottom: '1rem' }}>
-            <Link href="/help/create" className="btn-primary" style={{ width: '100%', borderRadius: '20px', padding: '1rem', background: 'linear-gradient(135deg, #A78BFA, #8B5CF6)' }}>
+            <Link href="/help/create" className="btn-primary" style={{ width: '100%', borderRadius: '25px', padding: '1rem', background: 'linear-gradient(135deg, #A78BFA, #8B5CF6)' }}>
               {isHe ? 'בקשת עזרה חדשה 🙋' : 'Request New Help 🙋'}
             </Link>
           </li>
         </ul>
       </nav>
       
-      <main className="main-content" style={{ padding: '2rem' }}>
-        <header style={{ marginBottom: '2.5rem' }}>
+      <main className="main-content" style={{ padding: '2rem 3rem' }}>
+        <header style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h1 style={{ fontSize: '2.8rem', color: 'var(--primary-dark)', fontFamily: '"DynaPuff", cursive' }}>
             {isHe ? 'בקשות עזרה' : 'Help Requests'}
           </h1>
         </header>
 
-        {/* Anonymity Banner Restored */}
-        <div style={{ background: 'white', padding: '1.5rem', borderRadius: '25px', marginBottom: '2.5rem', display: 'flex', alignItems: 'center', gap: '1.2rem', boxShadow: '0 8px 30px rgba(0,0,0,0.03)' }}>
-          <span style={{ fontSize: '2rem' }}>🔒</span>
-          <p style={{ margin: 0, fontSize: '0.95rem', color: '#666', fontWeight: '600', lineHeight: '1.6' }}>
-              {isHe 
-                ? 'מרכז העזרה הוא מקום בטוח להתייעץ באנונימיות מוחלטת. הפרטים האישיים והשמות שלכם ייחשפו רק ברגע שתחליטו לאשר עזרה ותעברו לצאט פרטי אחד על אחד.' 
-                : 'The Help Center is an anonymous safe space. Your personal details and names will be revealed only when you decide to approve help and start a 1-on-1 private chat.'}
-          </p>
-        </div>
-
         {/* Filters */}
         <div style={{ 
-          display: 'flex', gap: '1rem', marginBottom: '3rem', flexWrap: 'wrap', 
-          background: 'white', padding: '1.5rem', borderRadius: '30px', 
-          boxShadow: '0 10px 25px rgba(0,0,0,0.03)' 
+          display: 'flex', gap: '1rem', marginBottom: '3rem', flexWrap: 'nowrap', 
+          background: 'white', padding: '1.2rem', borderRadius: '25px', 
+          boxShadow: '0 8px 30px rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.02)'
         }}>
           <div style={{ flex: 1, minWidth: '240px' }}>
             <input 
               type="text" 
               className="input-field" 
-              style={{ borderRadius: '15px', background: '#FDFBFF', border: '1px solid #EEE' }}
+              style={{ borderRadius: '15px', background: '#F9F7FF', border: 'none' }}
               placeholder={isHe ? 'חפש קורס...' : 'Search course...'} 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <select className="input-field" style={{ width: '180px', borderRadius: '15px', background: '#FDFBFF', border: '1px solid #EEE' }} value={filterMajor} onChange={(e) => setFilterMajor(e.target.value)}>
+          <select className="input-field" style={{ width: '180px', borderRadius: '15px', background: '#F9F7FF', border: 'none' }} value={filterMajor} onChange={(e) => setFilterMajor(e.target.value)}>
             <option value="All">{isHe ? 'כל החוגים' : 'All Majors'}</option>
             {Object.entries(t.degrees).map(([k, v]) => (
               <option key={k} value={k}>{v as string}</option>
             ))}
           </select>
-          <select className="input-field" style={{ width: '120px', borderRadius: '15px', background: '#FDFBFF', border: '1px solid #EEE' }} value={filterYear} onChange={(e) => setFilterYear(e.target.value)}>
+          <select className="input-field" style={{ width: '120px', borderRadius: '15px', background: '#F9F7FF', border: 'none' }} value={filterYear} onChange={(e) => setFilterYear(e.target.value)}>
             <option value="All">{isHe ? 'כל השנים' : 'All Years'}</option>
             {Object.entries(t.years).map(([k, v]) => (
               <option key={k} value={k}>{v as string}</option>
@@ -169,7 +156,7 @@ export default function HelpCenterPage() {
           </select>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '2.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '2.5rem' }}>
           {requests
             .filter(r => {
               const matchesSearch = r.course?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -182,77 +169,93 @@ export default function HelpCenterPage() {
               key={req.id} 
               className="glass-card" 
               style={{ 
-                display: 'flex', flexDirection: 'column', padding: '2.2rem',
+                display: 'flex', flexDirection: 'column', padding: '2rem',
                 borderRadius: '35px', background: 'white',
-                boxShadow: req.urgencyRaw === 'today' ? '0 0 25px rgba(244, 67, 54, 0.4)' : '0 15px 45px rgba(138, 99, 210, 0.06)',
+                boxShadow: req.urgencyRaw === 'today' ? '0 0 30px rgba(244, 67, 54, 0.15)' : '0 15px 45px rgba(138, 99, 210, 0.06)',
                 position: 'relative',
-                border: req.urgencyRaw === 'today' ? '2.5px solid rgba(244, 67, 54, 0.25)' : '1px solid rgba(0,0,0,0.02)'
+                border: req.urgencyRaw === 'today' ? '2px solid rgba(244, 67, 54, 0.1)' : '1px solid rgba(0,0,0,0.01)'
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem', marginBottom: '1.5rem' }}>
-                <ScienceAvatar avatarId={req.avatarBase} avatarFile={`${req.avatarBase}.png`} accessory={null} size={65} backgroundColor="#F3F0FF" />
+                <ScienceAvatar 
+                   avatarId={req.avatarBase} 
+                   avatarFile={`${req.avatarBase}.png`} 
+                   accessory={ACCESSORIES.find(a => a.id === req.avatarAccessory) || null} 
+                   size={70} 
+                   backgroundColor={req.avatarBg} 
+                />
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <p style={{ fontWeight: '900', margin: 0, fontSize: '1.4rem', color: 'var(--primary-dark)', fontFamily: '"DynaPuff", cursive' }}>{req.nickname}</p>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: '0.3rem 0 0 0', fontWeight: '800' }}>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: '0.2rem 0 0 0', fontWeight: 'bold' }}>
                     {req.degree} • {req.year}
                   </p>
                 </div>
               </div>
 
-              <div style={{ flex: 1, marginBottom: '2rem' }}>
-                <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-                  <span style={{ background: '#F5F3FF', padding: '0.5rem 1rem', borderRadius: '15px', fontSize: '0.85rem', fontWeight: '900', color: 'var(--primary-color)' }}>
+              <div style={{ flex: 1, marginBottom: '2.5rem' }}>
+                <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '1.5rem', flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+                  <span style={{ 
+                    background: '#F5F3FF', padding: '0.4rem 0.8rem', borderRadius: '12px', 
+                    fontSize: '0.85rem', fontWeight: '900', color: 'var(--primary-color)',
+                    whiteSpace: 'nowrap'
+                  }}>
                     📚 {req.course}
                   </span>
-                  {req.duration && (
-                    <span style={{ background: '#F0FDF4', color: '#166534', padding: '0.5rem 1rem', borderRadius: '15px', fontSize: '0.85rem', fontWeight: '900' }}>
-                      ⏱️ {req.duration}
-                    </span>
-                  )}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                     <span style={{ 
-                      background: req.urgencyRaw === 'today' ? '#FFEDED' : (req.urgencyRaw === 'this_week' ? '#000' : '#F0FDF4'), 
-                      color: req.urgencyRaw === 'today' ? '#CC0000' : (req.urgencyRaw === 'this_week' ? '#FFD700' : '#166534'), 
-                      padding: '0.5rem 1rem', borderRadius: '15px', fontSize: '0.85rem', fontWeight: '900',
-                      textDecoration: req.urgencyRaw === 'this_week' ? 'underline' : 'none'
+                      background: req.urgencyRaw === 'today' ? '#FFEDED' : (req.urgencyRaw === 'this_week' ? '#FFF3E0' : '#F0FDF4'), 
+                      color: req.urgencyRaw === 'today' ? '#CC0000' : (req.urgencyRaw === 'this_week' ? '#E67E22' : '#166534'), 
+                      padding: '0.4rem 0.8rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: '900',
+                      whiteSpace: 'nowrap'
                     }}>
                       {req.urgencyRaw === 'today' ? '🚨 ' : '📅 '} {req.urgencyLabel}
                     </span>
                     {req.urgencyRaw === 'this_week' && req.displayDate && (
-                      <span style={{ fontWeight: '900', color: '#000', fontSize: '0.9rem', borderBottom: '2px solid #000' }}>
+                      <span style={{ fontSize: '0.75rem', color: '#999', fontWeight: 'bold', textAlign: 'center' }}>
                         {req.displayDate}
                       </span>
                     )}
                   </div>
+
+                  {req.duration && (
+                    <span style={{ 
+                      background: '#F0FDF4', color: '#166534', padding: '0.4rem 0.8rem', 
+                      borderRadius: '12px', fontSize: '0.85rem', fontWeight: '900',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      ⏱️ {req.duration}
+                    </span>
+                  )}
                 </div>
 
-                <p style={{ lineHeight: '1.7', margin: 0, fontSize: '1.1rem', color: '#555' }}>{req.content}</p>
+                <p style={{ lineHeight: '1.7', margin: 0, fontSize: '1.15rem', color: '#444', fontWeight: '500' }}>{req.content}</p>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #F3F0FF', paddingTop: '1.5rem' }}>
                 {req.isOwn ? (
                   <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-                    <button onClick={() => router.push(`/help/edit/${req.id}`)} style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                    <button onClick={() => router.push(`/help/edit/${req.id}`)} style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '900' }}>
                         {isHe ? 'עריכה' : 'Edit'}
                     </button>
-                    <button onClick={() => handleDeleteRequest(req.id)} style={{ background: 'none', border: 'none', color: '#FF7676', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                    <button onClick={() => handleDeleteRequest(req.id)} style={{ background: 'none', border: 'none', color: '#FF7676', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '900' }}>
                         {isHe ? 'מחיקה' : 'Delete'}
                     </button>
                   </div>
                 ) : (
-                  <div style={{ width: '1px' }}></div>
+                  <div style={{ flex: 1 }}>
+                     {req.status === 'pending' && (
+                        <button onClick={() => router.push(`/chat/${req.id}`)} className="btn-primary" style={{ padding: '0.7rem 1.5rem', fontSize: '0.9rem', background: '#3B82F6', borderRadius: '18px' }}>
+                           {isHe ? 'עבור לצ׳אט' : 'Go to Chat'}
+                        </button>
+                     )}
+                  </div>
                 )}
                 
                 {!req.isOwn && req.status === 'open' && (
-                  <button onClick={() => handleOfferHelpClick(req.id)} className="btn-primary" style={{ padding: '0.8rem 1.8rem', fontSize: '1rem', background: '#34D399', borderRadius: '18px' }}>
+                  <button onClick={() => handleOfferHelpClick(req.id)} className="btn-primary" style={{ padding: '0.8rem 1.8rem', fontSize: '1rem', background: '#22C55E', borderRadius: '18px' }}>
                     {isHe ? 'הצע/י עזרה' : 'Offer Help'}
                   </button>
-                )}
-                
-                {req.status === 'pending' && (
-                  <div style={{ padding: '0.8rem 1.2rem', background: '#F5F3FF', borderRadius: '15px', color: 'var(--primary-dark)', fontWeight: 'bold', fontSize: '0.95rem' }}>
-                    {isHe ? '✅ הצעה הוגשה' : '✅ Offer Sent'}
-                  </div>
                 )}
               </div>
             </div>

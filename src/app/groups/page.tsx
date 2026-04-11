@@ -65,7 +65,7 @@ export default function GroupsBrowserPage() {
         const yr = g.profiles?.year_of_study || g.profiles?.year || '';
 
         const formatDate = (ds: string) => {
-          if (!ds || ds === 'TBD' || ds === 'טרם נקבע') return isHe ? 'עדיין לא נקבע תאריך ושעה' : 'Date/Time TBD';
+          if (!ds || ds === 'TBD' || ds === 'טרם נקבע') return isHe ? 'טרם נקבע' : 'TBD';
           try {
             const d = new Date(ds);
             if (isNaN(d.getTime())) return ds;
@@ -136,7 +136,7 @@ export default function GroupsBrowserPage() {
   });
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', paddingTop: '2.5rem', paddingBottom: '5rem', direction: isHe ? 'rtl' : 'ltr' }}>
+    <div style={{ maxWidth: '1000px', margin: '0 auto', paddingTop: '2.5rem', paddingBottom: '5rem', direction: isHe ? 'rtl' : 'ltr' }}>
       
       {/* Language Toggle */}
       <div style={{ position: 'fixed', top: '2rem', right: '2rem', zIndex: 100 }}>
@@ -201,68 +201,69 @@ export default function GroupsBrowserPage() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem' }}>
         {filteredGroups.map((group) => {
           const isFull = group.members.length >= group.maxMembers;
           const slotsLeft = group.maxMembers - group.members.length;
           
           let actionLabel = isHe ? (isFull ? 'רשימת המתנה' : 'הצטרפות') : (isFull ? 'Waitlist' : 'Join');
-          if (group.joinedStatus === 'approved') actionLabel = isHe ? 'עזוב קבוצה' : 'Leave';
-          if (group.joinedStatus === 'waiting') actionLabel = isHe ? 'צא מהמתנה' : 'Leave';
+          if (group.joinedStatus === 'approved') actionLabel = isHe ? 'צאט' : 'Chat';
+          if (group.joinedStatus === 'waiting') actionLabel = isHe ? 'צא מהמתנה' : 'Leave Waitlist';
 
           return (
             <div key={group.id} className="glass-card" style={{ 
-              display: 'flex', flexDirection: 'column', padding: '2rem', 
+              display: 'flex', flexDirection: 'column', padding: '1.5rem', 
               borderRadius: '35px', boxShadow: '0 12px 40px rgba(0,0,0,0.05)', background: 'white', border: 'none',
               transition: 'transform 0.2s ease-in-out'
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.2rem' }}>
-                <h3 style={{ margin: 0, fontSize: '1.4rem', color: 'var(--primary-dark)', fontWeight: '900', fontFamily: '"DynaPuff", cursive' }}>{group.title}</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.8rem' }}>
+                <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.6rem', color: 'var(--primary-dark)', fontWeight: '900', fontFamily: '"DynaPuff", cursive', width: '70%', lineHeight: '1.2' }}>{group.title}</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem' }}>
                    <span style={{ 
                       background: isFull ? '#FFEDED' : '#F0FDF4', 
                       color: isFull ? '#FF7676' : '#22C55E', 
                       padding: '0.5rem 0.8rem', borderRadius: '12px', 
-                      fontSize: '1rem', fontWeight: '900',
-                      boxShadow: '0 4px 10px rgba(0,0,0,0.05)'
+                      fontSize: '1.2rem', fontWeight: '900',
+                      boxShadow: '0 4px 10px rgba(0,0,0,0.05)',
+                      textAlign: 'center'
                    }}>
-                     {isFull ? (isHe ? 'מלא' : 'FULL') : `${slotsLeft} ${isHe ? 'מקומות פנויים' : 'SPOTS LEFT'}`}
+                     {isFull ? (isHe ? 'מלא' : 'FULL') : (isHe ? `${slotsLeft} מקומות פנויים` : `${slotsLeft} SPOTS LEFT`)}
                    </span>
-                   <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>
+                   <span style={{ fontSize: '1rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>
                       {group.members.length}/{group.maxMembers}
                    </span>
                 </div>
               </div>
               
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '1.2rem' }}>
-                <span style={{ background: '#F5F1FF', color: 'var(--primary-color)', padding: '0.4rem 0.8rem', borderRadius: '10px', fontSize: '0.85rem', fontWeight: '800' }}>📚 {group.course}</span>
-                {group.degree && <span style={{ background: '#F5F1FF', color: 'var(--primary-color)', padding: '0.4rem 0.8rem', borderRadius: '10px', fontSize: '0.85rem', fontWeight: '800' }}>🎓 {group.degree}</span>}
-                {group.year && <span style={{ background: '#F5F1FF', color: 'var(--primary-color)', padding: '0.4rem 0.8rem', borderRadius: '10px', fontSize: '0.85rem', fontWeight: '800' }}>📅 {group.year}</span>}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.2rem' }}>
+                <span style={{ background: '#F5F1FF', color: 'var(--primary-color)', padding: '0.4rem 0.6rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '800' }}>📚 {group.course}</span>
+                {group.degree && <span style={{ background: '#F5F1FF', color: 'var(--primary-color)', padding: '0.4rem 0.6rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '800' }}>🎓 {group.degree}</span>}
+                {group.year && <span style={{ background: '#F5F1FF', color: 'var(--primary-color)', padding: '0.4rem 0.6rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '800' }}>📅 {group.year}</span>}
               </div>
 
-              <div style={{ background: '#F9F8FF', padding: '1.2rem', borderRadius: '25px', marginBottom: '1.8rem', fontSize: '0.95rem' }}>
-                <p style={{ margin: '0 0 0.8rem 0', fontWeight: '800' }}><strong>👑 {isHe ? 'מנהל:' : 'Manager:'}</strong> {group.manager}</p>
+              <div style={{ background: '#F9F8FF', padding: '1rem', borderRadius: '25px', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+                <p style={{ margin: '0 0 0.5rem 0', fontWeight: '800' }}><strong>👑 {isHe ? 'מנהל:' : 'Manager:'}</strong> {group.manager}</p>
                 <p style={{ margin: 0, color: 'var(--text-muted)', fontWeight: '600' }}>
                   <strong>👥 {isHe ? 'משתתפים:' : 'Members:'}</strong> {group.members.length > 0 ? group.members.map(m => m.name).join(', ') : (isHe ? 'טרם הצטרפו' : 'None yet')}
                 </p>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', borderTop: '1px solid #F3F0FF', paddingTop: '1.2rem' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: '900', color: group.dateStr.includes(':') ? 'var(--primary-color)' : '#999' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', borderTop: '1px solid #F3F0FF', paddingTop: '1rem' }}>
+                <span style={{ fontSize: '1.1rem', fontWeight: '900', color: group.dateStr === 'טרם נקבע' || group.dateStr === 'TBD' ? '#999' : 'var(--primary-color)' }}>
                    🕒 {group.dateStr}
                 </span>
-                <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
                   {group.joinedStatus === 'approved' ? (
                     <>
-                      <button onClick={() => router.push('/groups/' + group.id)} className="btn-primary" style={{ padding: '0.6rem 1.4rem', borderRadius: '14px' }}>
+                      <button onClick={() => router.push('/groups/' + group.id)} className="btn-primary" style={{ padding: '0.6rem 1.4rem', borderRadius: '14px', fontSize: '1rem' }}>
                         {isHe ? 'צאט' : 'Chat'}
                       </button>
-                      <button onClick={() => handleActionClick(group.id)} style={{ background: 'transparent', border: 'none', color: '#FF7676', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                      <button onClick={() => handleActionClick(group.id)} style={{ background: 'transparent', border: 'none', color: '#FF7676', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>
                         {isHe ? 'צא מהקבוצה' : 'Leave'}
                       </button>
                     </>
                   ) : (
-                    <button className={group.joinedStatus !== 'none' ? 'btn-secondary' : 'btn-primary'} style={{ padding: '0.7rem 1.6rem', borderRadius: '14px' }} onClick={() => handleActionClick(group.id)}>
+                    <button className={group.joinedStatus !== 'none' ? 'btn-secondary' : 'btn-primary'} style={{ padding: '0.7rem 1.6rem', borderRadius: '14px', fontSize: '1rem' }} onClick={() => handleActionClick(group.id)}>
                        {actionLabel}
                     </button>
                   )}

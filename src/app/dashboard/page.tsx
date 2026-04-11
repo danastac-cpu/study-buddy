@@ -103,7 +103,7 @@ export default function DashboardPage() {
         setAcceptedGroups(allGroups.map(g => ({
           id: g.id,
           title: isHe ? (g.title || g.topic || 'קבוצה') : (g.title || g.topic || 'Group'),
-          details: g.session_time || g.date_str || (isHe ? 'טרם נקבע' : 'TBD')
+          details: (g.session_time === 'TBD' || !g.session_time) ? (isHe ? 'טרם נקבע' : 'TBD') : g.session_time
         })));
 
         // 4. Fetch Active Help Sessions (1-on-1 Chats)
@@ -117,16 +117,20 @@ export default function DashboardPage() {
           const activeHelp = helpData.map(h => {
             const isRequester = h.requester_id === authData.user.id;
             const otherParty = isRequester ? h.helper_profile : h.profiles;
+            const hasNewMessage = updatesData?.some(u => u.type === 'new_message' && u.request_id === h.id);
+
             return {
               id: h.id,
+              type: 'help',
               topic: h.course_name || h.course,
               otherName: otherParty?.alias || (isHe ? 'ממתין לעוזר...' : 'Waiting for helper...'),
               isRequester,
-              status: h.status
+              status: h.status,
+              hasNewMessage,
+              dateStr: h.date_str || (isHe ? 'טרם נקבע' : 'TBD')
             };
           });
           setActiveHelpSessions(activeHelp.filter(h => h.status === 'offered'));
-          // Only count help requests where I am the requester
           setAllUserHelpRequests(helpData.filter(h => h.requester_id === authData.user.id));
         }
 
@@ -524,34 +528,67 @@ export default function DashboardPage() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {/* Real Active Groups */}
-            {acceptedGroups.map((group, idx) => (
-              <Link key={`group-${idx}`} href={`/groups/${group.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', cursor: 'pointer', transition: 'transform 0.2s', borderLeft: isHe ? 'none' : '6px solid var(--primary-color)', borderRight: isHe ? '6px solid var(--primary-color)' : 'none' }}>
-                  <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>📚</div>
-                  <div style={{ flex: 1 }}>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{group.title}</h3>
-                    <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.9rem', marginTop: '0.3rem' }}>{group.details}</p>
+            {/* Unified Sessions List: Groups + Confirmed Help */}
+            {[
+              ...acceptedGroups.map(g => ({ ...g, type: 'group' })),
+              ...activeHelpSessions.map(h => ({ ...h, type: 'help' }))
+            ].sort((a, b) => 0).map((session, idx) => (
+              <Link 
+                key={`${session.type}-${session.id}-${idx}`} 
+                href={session.type === 'group' ? `/groups/${session.id}` : `/chat/${session.id}`} 
+                style={{ textDecoration: 'none', color: 'inherit' }}
+              >
+                <div 
+                  className="glass-card" 
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '1.5rem', 
+                    cursor: 'pointer', 
+                    transition: 'transform 0.2s', 
+                    borderLeft: isHe ? 'none' : `6px solid ${session.type === 'group' ? 'var(--primary-color)' : '#4CAF50'}`, 
+                    borderRight: isHe ? `6px solid ${session.type === 'group' ? 'var(--primary-color)' : '#4CAF50'}` : 'none',
+                    position: 'relative'
+                  }}
+                >
+                  <div style={{ 
+                    width: '60px', 
+                    height: '60px', 
+                    borderRadius: '50%', 
+                    background: session.type === 'group' ? 'var(--primary-light)' : 'rgba(76, 175, 80, 0.1)', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    fontSize: '1.5rem' 
+                  }}>
+                    {session.type === 'group' ? '📚' : '🤝'}
                   </div>
-                  <div style={{ color: 'var(--primary-color)', fontWeight: '600' }}>{isHe ? 'היכנס למפגש' : 'Enter Session'} &rarr;</div>
-                </div>
-              </Link>
-            ))}
-
-            {/* Real Active Help Chats (1-on-1) */}
-            {activeHelpSessions.map((session, idx) => (
-              <Link key={`help-${idx}`} href={`/chat/${session.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', cursor: 'pointer', transition: 'transform 0.2s', borderLeft: isHe ? 'none' : '6px solid #4CAF50', borderRight: isHe ? '6px solid #4CAF50' : 'none' }}>
-                  <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(76, 175, 80, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>🤝</div>
+                  
                   <div style={{ flex: 1 }}>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>
-                      {session.topic} ({session.isRequester ? (isHe ? 'לבקשתך' : 'Your Request') : (isHe ? 'את/ה עוזר/ת' : 'You are helping')})
+                    <h3 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {session.title || session.topic}
+                      {session.hasNewMessage && (
+                        <span style={{ 
+                          background: '#25D366', 
+                          color: 'white', 
+                          fontSize: '0.7rem', 
+                          padding: '0.2rem 0.5rem', 
+                          borderRadius: '10px',
+                          fontWeight: 'bold',
+                          animation: 'pulse 2s infinite'
+                        }}>
+                          {isHe ? 'הודעה חדשה!' : 'New Message!'}
+                        </span>
+                      )}
                     </h3>
-                    <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.85rem', marginTop: '0.3rem' }}>
-                      {isHe ? 'עם' : 'With'} {session.otherName}
+                    <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.9rem', marginTop: '0.3rem' }}>
+                      {session.type === 'group' ? session.details : `${isHe ? 'עם' : 'With'} ${session.otherName} • ${session.dateStr}`}
                     </p>
                   </div>
-                  <div style={{ color: '#4CAF50', fontWeight: '600' }}>{isHe ? 'היכנס לצ׳אט' : 'Enter Chat'} &rarr;</div>
+
+                  <div style={{ color: session.type === 'group' ? 'var(--primary-color)' : '#4CAF50', fontWeight: '600', fontSize: '0.9rem' }}>
+                    {isHe ? 'לך לצ׳אט' : 'Go to Chat'} &rarr;
+                  </div>
                 </div>
               </Link>
             ))}
@@ -563,6 +600,7 @@ export default function DashboardPage() {
                 </p>
               </div>
             )}
+            
             {/* My Active Feed Post (Dynamic) */}
             <Link href="/feed" style={{ textDecoration: 'none', color: 'inherit' }}>
               <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', cursor: 'pointer', transition: 'transform 0.2s', borderLeft: isHe ? 'none' : '6px solid #FF9800', borderRight: isHe ? '6px solid #FF9800' : 'none' }}>

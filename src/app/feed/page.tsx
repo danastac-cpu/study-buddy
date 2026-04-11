@@ -531,10 +531,31 @@ export default function FeedPage() {
                 <>
                     <p style={{ lineHeight: '1.6', margin: '0 0 1rem 0' }}>{post.text}</p>
                     {post.fileUrl && (
-                    <div style={{ marginBottom: '1rem' }}>
+                    <div style={{ marginBottom: '1.5rem' }}>
+                      {post.fileUrl.match(/\.(jpeg|jpg|gif|png|webp)$/i) || post.text.includes('__MEDIA_IMAGE__') ? (
+                        <div 
+                          style={{ cursor: 'pointer', borderRadius: '15px', overflow: 'hidden', border: '1px solid rgba(0,0,0,0.05)', display: 'inline-block' }} 
+                          onClick={() => window.open(post.fileUrl, '_blank')}
+                        >
+                          <img 
+                            src={post.fileUrl} 
+                            alt="Feed Content" 
+                            style={{ maxWidth: '100%', maxHeight: '400px', display: 'block' }} 
+                            onError={(e) => {
+                                // If image fails to load, show a link fallback
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.parentElement!.innerHTML = `<a href="${post.fileUrl}" target="_blank" class="btn-secondary">📎 ${isHe ? 'קובץ' : 'File'}</a>`;
+                            }}
+                          />
+                          <p style={{ background: 'rgba(0,0,0,0.03)', margin: 0, padding: '0.4rem', fontSize: '0.75rem', textAlign: 'center', color: '#666' }}>
+                             {isHe ? '🔍 לחץ להגדלה' : '🔍 Click to enlarge'}
+                          </p>
+                        </div>
+                      ) : (
                         <a href={post.fileUrl} target="_blank" rel="noreferrer" className="btn-secondary" style={{ fontSize: '0.85rem' }}>
                         📎 {isHe ? 'קובץ מצורף: פתח בחלון חדש' : 'Attachment: Open Link'}
                         </a>
+                      )}
                     </div>
                     )}
                 </>

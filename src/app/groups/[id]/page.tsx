@@ -62,7 +62,7 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
         setSavedTopic(data.title || data.topic);
         
         const formatDate = (ds: string) => {
-          if (!ds || ds === 'TBD' || ds === 'טרם נקבע') return isHe ? 'לא נקבע מועד' : 'TBD';
+          if (!ds || ds === 'TBD' || ds === 'טרם נקבע' || ds === 'לא נקבע מועד') return isHe ? 'טרם נקבע' : 'TBD';
           try {
             const d = new Date(ds);
             if (isNaN(d.getTime())) return ds;
@@ -104,7 +104,12 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
     fetchMessages();
 
     // 5. Subscribe to Realtime messages
-    const channel = supabase.channel(`room_${roomId}`)
+    // 4. Clear notifications for this group
+    if (userId) {
+      supabase.from('updates').delete().eq('user_id', userId).eq('type', 'new_message').eq('request_id', roomId).then(() => {});
+    }
+
+    const channel = supabase.channel('group_changes_' + roomId)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `room_id=eq.${roomId}` }, 
         (payload) => {
           setMessages((prev) => [...prev, payload.new as Message]);
@@ -196,6 +201,23 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
       sender_name: userName,
       content: content
     }]);
+
+    if (!error) {
+        // Notify other members
+        members.forEach(m => {
+          if (m.user_id !== userId) {
+            supabase.from('updates').insert([{
+                user_id: m.user_id,
+                type: 'new_message',
+                request_id: roomId,
+                title_he: 'הודעה חדשה בקבוצה 📚',
+                title_en: 'New message in group 📚',
+                content_he: `הודעה חדשה ב-${savedTopic} מ-${userName}`,
+                content_en: `New message in ${savedTopic} from ${userName}`
+            }]).then(() => {});
+          }
+        });
+    }
 
     if(error) {
       setMessages(prev => [...prev, { id: Date.now().toString(), sender_name: userName, content: content, created_at: new Date().toISOString(), sender_id: userId, room_id: roomId }]);

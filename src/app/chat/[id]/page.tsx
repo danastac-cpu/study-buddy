@@ -109,6 +109,11 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
       ).subscribe();
 
     // Presence logic removed for privacy
+    
+    // Clear notifications for this room when entering
+    if (userId) {
+      supabase.from('updates').delete().eq('user_id', userId).eq('type', 'new_message').eq('request_id', unwrappedId).then(() => {});
+    }
   }, [unwrappedId, userId, isHe]);
 
   const processSystemMessages = (msgs: Message[], uid: string) => {
@@ -201,6 +206,22 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
       sender_name: contentOverride ? 'System' : userName,
       content: finalContent
     }]);
+
+    // Insert "New Message" update for the partner (if not system message)
+    if (!contentOverride && partnerProfile?.id) {
+        // First delete any previous new_message updates for this request to keep it clean
+        await supabase.from('updates').delete().eq('user_id', partnerProfile.id).eq('type', 'new_message').eq('request_id', unwrappedId);
+        
+        await supabase.from('updates').insert([{
+            user_id: partnerProfile.id,
+            type: 'new_message',
+            request_id: unwrappedId,
+            title_he: 'הודעה חדשה בצ׳אט 💬',
+            title_en: 'New message in chat 💬',
+            content_he: `קיבלת הודעה חדשה מ-${userName}`,
+            content_en: `You received a new message from ${userName}`
+        }]);
+    }
   };
 
   const handleGrantStars = async () => {
