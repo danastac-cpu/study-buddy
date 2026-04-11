@@ -272,7 +272,7 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
         <Link href="/dashboard" className="btn-secondary" style={{ marginBottom: '2rem', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
           {isHe ? '← חזרה' : '← Back'}
         </Link>
-        <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', fontFamily: '"DynaPuff", cursive', color: 'var(--primary-color)' }}>
+        <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive', color: 'var(--primary-color)' }}>
           {isHe ? 'צ׳אט פרטי' : 'Private Chat'}
         </h2>
 
@@ -309,9 +309,6 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
                   <p style={{ margin: '0 0 0.5rem 0', fontWeight: '800', color: 'var(--primary-color)' }}>{isHe ? 'פרטי השותף/ה:' : 'Partner Details:'}</p>
                   <p style={{ margin: 0, fontWeight: '700' }}>{partnerProfile?.real_name}</p>
                   <p style={{ margin: 0, fontSize: '0.85rem' }}>{partnerProfile?.degree} • {partnerProfile?.year}</p>
-                  <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#D4AF37', fontWeight: 'bold' }}>
-                    🌟 {partnerProfile?.helper_stars || 0} {isHe ? 'כוכבים' : 'Stars'}
-                  </div>
               </div>
           )}
         </div>
@@ -345,7 +342,7 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
       <main className="main-content" style={{ display: 'flex', flexDirection: 'column', height: '100vh', padding: 0 }}>
         {/* Header Options */}
         <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid rgba(138, 99, 210, 0.1)', background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(10px)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1 style={{ fontSize: '2.5rem', margin: 0, fontFamily: '"DynaPuff", cursive', color: 'var(--primary-color)' }}>
+          <h1 style={{ fontSize: '2.5rem', margin: 0, fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive', color: 'var(--primary-color)' }}>
             {isHe ? 'צ׳אט אישי (1-על-1)' : 'Private Chat (1-on-1)'}
           </h1>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>

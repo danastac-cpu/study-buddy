@@ -478,7 +478,7 @@ export default function DashboardPage() {
 
       <main className="main-content">
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem' }}>
-          <h1 style={{ fontSize: '2.2rem', margin: 0, fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive' }}>
+          <h1 style={{ fontSize: '2.5rem', margin: 0, fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive', color: 'var(--primary-color)' }}>
             {isHe
               ? `${profile?.real_first_name || 'חבר קהילה'}, כיף לראות אותך 💜`
               : `Welcome back, ${profile?.real_first_name || 'Friend'}.`}
@@ -541,7 +541,7 @@ export default function DashboardPage() {
 
         <section>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <h2 style={{ fontSize: '1.8rem', fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive' }}>
+            <h2 style={{ fontSize: '2.2rem', fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive', color: 'var(--primary-color)' }}>
               {isHe ? 'מפגשים וצ׳אטים קרובים' : 'Upcoming Sessions & Chats'}
             </h2>
           </div>
@@ -657,39 +657,39 @@ export default function DashboardPage() {
         {/* Notifications / Updates Area */}
         {notifications?.length > 0 && (
           <section style={{ marginTop: '4rem' }}>
-            <h2 style={{ fontSize: '1.8rem', fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive', marginBottom: '1.5rem', color: '#ff9800' }}>
+            <h2 style={{ fontSize: '2.2rem', fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive', marginBottom: '1.5rem', color: '#ff9800' }}>
               {isHe ? 'עדכונים חשובים' : 'Important Updates'}
             </h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {notifications.map(notif => {
-                let cardBg = 'rgba(255, 255, 255, 0.8)';
-                let cardBorder = '1px solid rgba(138, 99, 210, 0.1)';
+                let cardBg = 'rgba(255, 255, 255, 0.9)';
+                let cardBorder = '2px solid rgba(138, 99, 210, 0.1)';
                 let icon = '🔔';
-                let accentColor = '#8A63D2';
+                let accentColor = 'var(--primary-color)';
 
                 if (notif.type === 'approval' || notif.type === 'help') {
-                   cardBg = 'rgba(76, 175, 80, 0.05)';
-                   cardBorder = '1px solid rgba(76, 175, 80, 0.2)';
-                   icon = '👋';
-                   accentColor = '#4CAF50';
+                   cardBg = 'rgba(76, 175, 80, 0.08)';
+                   cardBorder = '2px solid rgba(76, 175, 80, 0.2)';
+                   icon = '🤝';
+                   accentColor = '#2E7D32';
                 } else if (notif.type === 'new-member' || notif.type === 'helper-approved') {
-                   cardBg = 'rgba(33, 150, 243, 0.05)';
-                   cardBorder = '1px solid rgba(33, 150, 243, 0.2)';
+                   cardBg = 'rgba(33, 150, 243, 0.08)';
+                   cardBorder = '2px solid rgba(33, 150, 243, 0.2)';
                    icon = '✨';
-                   accentColor = '#2196F3';
+                   accentColor = '#1565C0';
                 } else if (notif.type === 'reschedule') {
-                   cardBg = 'rgba(255, 193, 7, 0.05)';
-                   cardBorder = '1px solid rgba(255, 193, 7, 0.3)';
+                   cardBg = 'rgba(255, 193, 7, 0.08)';
+                   cardBorder = '2px solid rgba(255, 193, 7, 0.3)';
                    icon = '⏳';
-                   accentColor = '#FFC107';
-                } else if (notif.type === 'waitlist') {
-                   cardBg = 'rgba(255, 152, 0, 0.05)';
-                   cardBorder = '1px solid rgba(255, 152, 0, 0.2)';
+                   accentColor = '#FF8F00';
+                } else if (notif.type === 'waitlist' || notif.type === 'waiting-list-open') {
+                   cardBg = 'rgba(255, 152, 0, 0.08)';
+                   cardBorder = '2px solid rgba(255, 152, 0, 0.2)';
                    icon = '⌛';
-                   accentColor = '#FF9800';
+                   accentColor = '#E65100';
                 } else if (notif.type === 'star-received') {
-                   cardBg = 'rgba(255, 215, 0, 0.08)';
-                   cardBorder = '1px solid rgba(255, 215, 0, 0.4)';
+                   cardBg = 'rgba(255, 215, 0, 0.12)';
+                   cardBorder = '2px solid rgba(255, 215, 0, 0.4)';
                    icon = '🌟';
                    accentColor = '#D4AF37';
                 }
@@ -698,63 +698,65 @@ export default function DashboardPage() {
                   <div key={notif.id} className="glass-card" style={{
                     border: cardBorder,
                     background: cardBg,
-                    boxShadow: notif.type === 'helper-approved' ? '0 0 15px rgba(33, 150, 243, 0.3)' : undefined,
-                    animation: notif.type === 'helper-approved' ? 'pulse-glow-blue 2s infinite' : undefined
+                    padding: '1.5rem',
+                    borderRadius: '24px',
+                    boxShadow: notif.type === 'helper-approved' ? '0 0 20px rgba(33, 150, 243, 0.2)' : 'var(--shadow-sm)',
+                    animation: (notif.type === 'helper-approved' || notif.type === 'star-received') ? 'pulse-glow 3s infinite' : undefined
                   }}>
                     <style>{`
-                      @keyframes pulse-glow-blue {
-                        0% { box-shadow: 0 0 5px rgba(33, 150, 243, 0.2); }
-                        50% { box-shadow: 0 0 20px rgba(33, 150, 243, 0.6); }
-                        100% { box-shadow: 0 0 5px rgba(33, 150, 243, 0.2); }
+                      @keyframes pulse-glow {
+                        0% { transform: scale(1); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+                        50% { transform: scale(1.02); box-shadow: 0 8px 16px rgba(0,0,0,0.1); }
+                        100% { transform: scale(1); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
                       }
                     `}</style>
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                      <div style={{ fontSize: '2.2rem' }}>{icon}</div>
+                    <div style={{ display: 'flex', gap: '1.2rem', alignItems: 'center' }}>
+                      <div style={{ fontSize: '3rem', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}>{icon}</div>
                       <div style={{ flex: 1 }}>
-                        <h3 style={{ margin: '0 0 0.5rem 0', color: accentColor, fontWeight: '800' }}>
+                        <h3 style={{ margin: '0 0 0.3rem 0', color: accentColor, fontWeight: '900', fontSize: '1.3rem', fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive' }}>
                           {isHe ? notif.titleHe : notif.titleEn}
                         </h3>
-                        <p style={{ margin: 0, color: 'var(--text-main)', fontSize: '0.95rem', fontWeight: '500' }}>
+                        <p style={{ margin: 0, color: 'var(--text-main)', fontSize: '0.95rem', fontWeight: '500', lineHeight: '1.4' }}>
                           {isHe ? notif.contentHe : notif.contentEn}
                         </p>
                         <div style={{ marginTop: '1.2rem', display: 'flex', gap: '0.8rem' }}>
                           {notif.type === 'approval' || notif.type === 'help' ? (
                             <>
-                              <button onClick={() => handleActionWithCleanup(notif.id, () => router.push(`/chat/${notif.requestId}?role=requester`))} className="btn-primary" style={{ background: '#4CAF50', padding: '0.6rem 1.2rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                              <button onClick={() => handleActionWithCleanup(notif.id, () => router.push(`/chat/${notif.requestId}?role=requester`))} className="btn-primary" style={{ background: '#4CAF50', padding: '0.6rem 1.2rem', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '15px' }}>
                                 {isHe ? 'אשר פרטים ולך לצ׳אט!' : 'Approve & Go to Chat!'}
                               </button>
-                              <button onClick={() => handleDeclineUpdate(notif.id, notif.requestId)} className="btn-secondary" style={{ padding: '0.6rem 1rem', fontSize: '0.9rem' }}>
+                              <button onClick={() => handleDeclineUpdate(notif.id, notif.requestId)} className="btn-secondary" style={{ padding: '0.6rem 1rem', fontSize: '0.9rem', borderRadius: '15px' }}>
                                 {isHe ? 'דחה' : 'Decline'}
                               </button>
                             </>
                           ) : notif.type === 'helper-approved' ? (
-                            <button onClick={() => handleActionWithCleanup(notif.id, () => router.push(`/chat/${notif.requestId}?role=helper`))} className="btn-primary" style={{ background: '#2196F3', padding: '0.6rem 1.5rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                            <button onClick={() => handleActionWithCleanup(notif.id, () => router.push(`/chat/${notif.requestId}?role=helper`))} className="btn-primary" style={{ background: '#2196F3', padding: '0.6rem 1.5rem', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '15px' }}>
                               {isHe ? 'לך לצ׳אט' : 'Go to Chat'}
                             </button>
                           ) : notif.type === 'reschedule' ? (
                             <>
-                              <button className="btn-primary" style={{ background: '#FFC107', color: 'black', padding: '0.6rem 1.2rem', fontSize: '0.9rem', fontWeight: 'bold' }} onClick={() => setShowRescheduleModal(true)}>
+                              <button className="btn-primary" style={{ background: '#FFC107', color: 'black', padding: '0.6rem 1.2rem', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '15px' }} onClick={() => setShowRescheduleModal(true)}>
                                 {isHe ? 'כן, עדכן' : 'Yes, Update'}
                               </button>
-                              <button onClick={() => handleDeclineUpdate(notif.id, notif.requestId)} className="btn-secondary" style={{ padding: '0.6rem 1rem', fontSize: '0.9rem' }}>
+                              <button onClick={() => handleDeclineUpdate(notif.id, notif.requestId)} className="btn-secondary" style={{ padding: '0.6rem 1rem', fontSize: '0.9rem', borderRadius: '15px' }}>
                                 {isHe ? 'דחה' : 'Decline'}
                               </button>
                             </>
-                          ) : notif.type === 'waiting-list-open' ? (
+                          ) : (notif.type === 'waitlist' || notif.type === 'waiting-list-open') ? (
                             <>
-                              <button onClick={() => handleWaitlistAccept(notif.id, notif.groupId || '')} className="btn-primary" style={{ background: '#4CAF50', padding: '0.6rem 1.2rem', fontSize: '0.9rem' }}>
-                                {isHe ? 'המשך לצאט של הקבוצה' : 'Continue to Group Chat'}
+                              <button onClick={() => handleWaitlistAccept(notif.id, notif.groupId || '')} className="btn-primary" style={{ background: '#4CAF50', padding: '0.6rem 1.2rem', fontSize: '0.9rem', borderRadius: '15px' }}>
+                                {isHe ? 'הצטרף לקבוצה!' : 'Join Group Now!'}
                               </button>
-                              <button onClick={() => handleWaitlistDecline(notif.id)} className="btn-secondary" style={{ padding: '0.6rem 1rem', fontSize: '0.9rem' }}>
+                              <button onClick={() => handleWaitlistDecline(notif.id)} className="btn-secondary" style={{ padding: '0.6rem 1rem', fontSize: '0.9rem', borderRadius: '15px' }}>
                                 {isHe ? 'דחה' : 'Decline'}
                               </button>
                             </>
                           ) : notif.type === 'star-received' ? (
-                             <button onClick={() => handleCollectStars(notif.id)} className="btn-primary" style={{ background: '#D4AF37', border: 'none', padding: '0.6rem 1.5rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                             <button onClick={() => handleCollectStars(notif.id)} className="btn-primary" style={{ background: '#D4AF37', border: 'none', padding: '0.7rem 1.8rem', fontSize: '1rem', fontWeight: '900', borderRadius: '15px', boxShadow: '0 4px 15px rgba(212, 175, 55, 0.3)' }}>
                                {isHe ? 'אסוף כוכבים ✨' : 'Collect Stars ✨'}
                              </button>
                           ) : (
-                             <button onClick={() => handleDeclineUpdate(notif.id, '')} className="btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
+                             <button onClick={() => handleDeclineUpdate(notif.id, '')} className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', borderRadius: '12px' }}>
                                {isHe ? 'הבנתי' : 'Got it'}
                              </button>
                           )}

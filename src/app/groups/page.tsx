@@ -150,14 +150,14 @@ export default function GroupsBrowserPage() {
 
       <header style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
-          <Link href="/dashboard" className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}>
-            {isHe ? '← חזרה לחשבון' : '← Back to Account'}
+          <Link href="/dashboard" className="btn-secondary" style={{ padding: '0.5rem 1.1rem', fontSize: '0.9rem', borderRadius: '15px' }}>
+            {isHe ? '← חזרה' : '← Back'}
           </Link>
-          <h1 style={{ fontSize: '2.8rem', color: 'var(--primary-dark)', fontFamily: '"DynaPuff", cursive' }}>
+          <h1 style={{ fontSize: '2.5rem', margin: 0, fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive', color: 'var(--primary-color)' }}>
             {isHe ? 'קבוצות למידה' : 'Study Groups'}
           </h1>
         </div>
-        <Link href="/groups/create" className="btn-primary" style={{ padding: '0.8rem 1.5rem', borderRadius: '25px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <Link href="/groups/create" className="btn-primary" style={{ padding: '0.8rem 1.8rem', borderRadius: '25px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem' }}>
           <span style={{ fontSize: '1.2rem' }}>➕</span> {isHe ? 'קבוצה חדשה' : 'New Group'}
         </Link>
       </header>
@@ -212,12 +212,12 @@ export default function GroupsBrowserPage() {
 
           return (
             <div key={group.id} className="glass-card" style={{ 
-              display: 'flex', flexDirection: 'column', padding: '1.5rem', 
-              borderRadius: '35px', boxShadow: '0 12px 40px rgba(0,0,0,0.05)', background: 'white', border: 'none',
+              display: 'flex', flexDirection: 'column', padding: '2rem', 
+              borderRadius: '35px', 
               transition: 'transform 0.2s ease-in-out'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.8rem' }}>
-                <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.6rem', color: 'var(--primary-dark)', fontWeight: '900', fontFamily: '"DynaPuff", cursive', width: '70%', lineHeight: '1.2' }}>{group.title}</h3>
+                <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.6rem', color: 'var(--primary-color)', fontWeight: '900', fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive', width: '70%', lineHeight: '1.2' }}>{group.title}</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem' }}>
                    <span style={{ 
                       background: isFull ? '#FFEDED' : '#F0FDF4', 

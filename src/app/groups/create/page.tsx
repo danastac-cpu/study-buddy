@@ -36,8 +36,10 @@ export default function CreateGroupPage() {
     }
 
     setIsSubmitting(true);
-    const dateLabel = (createDate || createTime) 
-      ? `${createDate}${createDate && createTime ? ' | ' : ''}${createTime}` 
+    const dPart = createDate ? createDate : '';
+    const tPart = createTime ? createTime : '';
+    const dateLabel = (dPart || tPart) 
+      ? `${dPart}${dPart && tPart ? ' | ' : ''}${tPart}` 
       : (isHe ? 'טרם נקבע' : 'TBD');
 
     // 1. Insert Group
@@ -85,7 +87,7 @@ export default function CreateGroupPage() {
           <Link href="/groups" className="btn-secondary" style={{ padding: '0.4rem 1rem' }}>
              {isHe ? '← חזרה' : '← Back'}
           </Link>
-          <h1 style={{ fontSize: '2rem', margin: 0, fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive' }}>
+          <h1 style={{ fontSize: '2.5rem', margin: 0, fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive', color: 'var(--primary-color)' }}>
             {isHe ? 'יצירת קבוצת למידה' : 'Create a Study Group'}
           </h1>
         </div>
@@ -133,8 +135,8 @@ export default function CreateGroupPage() {
                   {isHe ? '(לא חובה למלא – ניתן לתאם מאוחר יותר)' : '(Optional - can be arranged later)'}
                 </span>
                 <div style={{ display: 'flex', gap: '0.8rem' }}>
-                  <input type="date" className="input-field" style={{ flex: 1 }} value={createDate} onChange={e => setCreateDate(e.target.value)} required={false} />
-                  <input type="time" className="input-field" style={{ flex: 1 }} value={createTime} onChange={e => setCreateTime(e.target.value)} required={false} />
+                  <input type="date" className="input-field" style={{ flex: 1 }} value={createDate} onChange={e => setCreateDate(e.target.value)} />
+                  <input type="time" className="input-field" style={{ flex: 1 }} value={createTime} onChange={e => setCreateTime(e.target.value)} />
                 </div>
               </div>
               <div style={{ width: '150px' }}>

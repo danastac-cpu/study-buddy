@@ -426,9 +426,9 @@ export default function FeedPage() {
         <Link href="/dashboard" className="btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
           {isHe ? '← חזרה לחשבון' : '← Back to Account'}
         </Link>
-        <h1 style={{ fontSize: '2.8rem', color: 'var(--primary-dark)', fontFamily: '"DynaPuff", cursive' }}>
-             {isHe ? 'הלוח של הקהילה' : 'Community Feed'}
-          </h1>
+        <h1 style={{ fontSize: '2.5rem', margin: 0, fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive', color: 'var(--primary-color)' }}>
+          {isHe ? 'פיד הקהילה' : 'Community Feed'}
+        </h1>
       </div>
 
       {/* Anonymity Banner */}

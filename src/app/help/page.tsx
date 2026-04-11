@@ -101,10 +101,10 @@ export default function HelpCenterPage() {
     <div className="app-wrapper" style={{ direction: isHe ? 'rtl' : 'ltr', background: '#FDFBFF' }}>
       
       <nav className="sidebar" style={{ background: 'white', borderRight: isHe ? 'none' : '1px solid rgba(0,0,0,0.05)', borderLeft: isHe ? '1px solid rgba(0,0,0,0.05)' : 'none' }}>
-        <Link href="/dashboard" className="btn-secondary" style={{ marginBottom: '2.5rem', background: 'white', borderRadius: '15px' }}>
+        <Link href="/dashboard" className="btn-secondary" style={{ marginBottom: '2.5rem', background: 'white', borderRadius: '15px', border: 'none', boxShadow: 'var(--shadow-sm)' }}>
           {isHe ? '← חזרה' : '← Back'}
         </Link>
-        <h2 style={{ fontSize: '2.4rem', marginBottom: '1rem', fontFamily: '"DynaPuff", cursive', color: 'var(--primary-color)' }}>
+        <h2 style={{ fontSize: '2.4rem', marginBottom: '1rem', fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive', color: 'var(--primary-color)' }}>
           {isHe ? 'מרכז עזרה' : 'Help Center'}
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '2.5rem', lineHeight: '1.6' }}>
@@ -113,7 +113,7 @@ export default function HelpCenterPage() {
 
         <ul style={{ listStyle: 'none', padding: 0 }}>
           <li style={{ marginBottom: '1rem' }}>
-            <Link href="/help/create" className="btn-primary" style={{ width: '100%', borderRadius: '25px', padding: '1rem', background: 'rgba(138, 99, 210, 0.1)', color: 'var(--primary-color)', border: '1px solid var(--primary-light)', fontWeight: 'bold' }}>
+            <Link href="/help/create" className="btn-primary" style={{ width: '100%', borderRadius: '25px', padding: '1rem', fontSize: '1.1rem' }}>
               {isHe ? 'בקשת עזרה חדשה 🙋' : 'Request New Help 🙋'}
             </Link>
           </li>
@@ -122,7 +122,7 @@ export default function HelpCenterPage() {
       
       <main className="main-content" style={{ padding: '2rem 3rem' }}>
         <header style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1 style={{ fontSize: '2.8rem', color: 'var(--primary-dark)', fontFamily: '"DynaPuff", cursive' }}>
+          <h1 style={{ fontSize: '2.5rem', margin: 0, fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive', color: 'var(--primary-color)' }}>
             {isHe ? 'בקשות עזרה' : 'Help Requests'}
           </h1>
         </header>
@@ -140,7 +140,7 @@ export default function HelpCenterPage() {
         }}>
           <div style={{ fontSize: '2rem' }}>💡</div>
           <div>
-            <h4 style={{ margin: '0 0 0.4rem 0', color: 'var(--primary-color)', fontFamily: '"DynaPuff", cursive' }}>
+            <h4 style={{ margin: '0 0 0.4rem 0', color: 'var(--primary-color)', fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive' }}>
               {isHe ? 'איך זה עובד?' : 'How it works?'}
             </h4>
             <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-main)', lineHeight: '1.5' }}>
@@ -210,8 +210,8 @@ export default function HelpCenterPage() {
                    backgroundColor={req.avatarBg} 
                 />
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <p style={{ fontWeight: '900', margin: 0, fontSize: '1.4rem', color: 'var(--primary-dark)', fontFamily: '"DynaPuff", cursive' }}>{req.nickname}</p>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: '0.2rem 0 0 0', fontWeight: 'bold' }}>
+                  <p style={{ fontWeight: '900', margin: 0, fontSize: '1.4rem', color: 'var(--primary-color)', fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive' }}>{req.nickname}</p>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '0.2rem 0 0 0', fontWeight: 'bold' }}>
                     {req.degree} • {req.year}
                   </p>
                 </div>
