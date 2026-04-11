@@ -133,8 +133,8 @@ export default function CreateGroupPage() {
                   {isHe ? '(לא חובה למלא – ניתן לתאם מאוחר יותר)' : '(Optional - can be arranged later)'}
                 </span>
                 <div style={{ display: 'flex', gap: '0.8rem' }}>
-                  <input type="date" className="input-field" style={{ flex: 1 }} value={createDate} onChange={e => setCreateDate(e.target.value)} />
-                  <input type="time" className="input-field" style={{ flex: 1 }} value={createTime} onChange={e => setCreateTime(e.target.value)} />
+                  <input type="date" className="input-field" style={{ flex: 1 }} value={createDate} onChange={e => setCreateDate(e.target.value)} required={false} />
+                  <input type="time" className="input-field" style={{ flex: 1 }} value={createTime} onChange={e => setCreateTime(e.target.value)} required={false} />
                 </div>
               </div>
               <div style={{ width: '150px' }}>

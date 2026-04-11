@@ -248,6 +248,25 @@ export default function DashboardPage() {
     router.refresh();
   };
 
+  const handleCollectStars = async (notifId: string) => {
+    if (!profile) return;
+    const { data: authData } = await supabase.auth.getUser();
+    if (authData?.user) {
+      const { data: pData } = await supabase.from('profiles').select('helper_stars').eq('id', authData.user.id).single();
+      const currentStars = pData?.helper_stars || 0;
+      const { error } = await supabase.from('profiles').update({ helper_stars: currentStars + 2 }).eq('id', authData.user.id);
+      
+      if (!error) {
+        await supabase.from('updates').delete().eq('id', notifId);
+        setNotifications(prev => prev.filter(n => n.id !== notifId));
+        setProfile((prev: any) => ({ ...prev, helper_stars: currentStars + 2 }));
+        alert(isHe ? 'הכוכבים נאספו בהצלחה! ✨' : 'Stars collected successfully! ✨');
+      } else {
+        alert(isHe ? 'שגיאה באיסוף הכוכבים.' : 'Error collecting stars.');
+      }
+    }
+  };
+
   const handleDeclineUpdate = async (notifId: string, requestId?: string) => {
     await supabase.from('updates').delete().eq('id', notifId);
     setNotifications(prev => prev.filter(n => n.id !== notifId));
@@ -668,6 +687,11 @@ export default function DashboardPage() {
                    cardBorder = '1px solid rgba(255, 152, 0, 0.2)';
                    icon = '⌛';
                    accentColor = '#FF9800';
+                } else if (notif.type === 'star-received') {
+                   cardBg = 'rgba(255, 215, 0, 0.08)';
+                   cardBorder = '1px solid rgba(255, 215, 0, 0.4)';
+                   icon = '🌟';
+                   accentColor = '#D4AF37';
                 }
 
                 return (
@@ -725,6 +749,10 @@ export default function DashboardPage() {
                                 {isHe ? 'דחה' : 'Decline'}
                               </button>
                             </>
+                          ) : notif.type === 'star-received' ? (
+                             <button onClick={() => handleCollectStars(notif.id)} className="btn-primary" style={{ background: '#D4AF37', border: 'none', padding: '0.6rem 1.5rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                               {isHe ? 'אסוף כוכבים ✨' : 'Collect Stars ✨'}
+                             </button>
                           ) : (
                              <button onClick={() => handleDeclineUpdate(notif.id, '')} className="btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
                                {isHe ? 'הבנתי' : 'Got it'}

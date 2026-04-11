@@ -273,7 +273,7 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
         <Link href="/groups" className="btn-secondary" style={{ marginBottom: '2rem', padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
           {isHe ? '← חזרה לקבוצות' : '← Back to Groups'}
         </Link>
-        <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem', fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive', color: 'var(--primary-color)' }}>Study Group #{roomId.slice(0,4)}</h2>
+        <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem', fontFamily: '"DynaPuff", cursive', color: 'var(--primary-color)' }}>Study Group #{roomId.slice(0,4)}</h2>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>
           {isHe ? 'קבוצת למידה פעילה' : 'Active Study Group'}
         </p>

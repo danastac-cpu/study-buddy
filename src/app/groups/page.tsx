@@ -148,19 +148,19 @@ export default function GroupsBrowserPage() {
         </button>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2.5rem' }}>
+      <header style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
           <Link href="/dashboard" className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}>
             {isHe ? '← חזרה לחשבון' : '← Back to Account'}
           </Link>
-          <h1 style={{ fontSize: '2.5rem', margin: 0, fontFamily: '"DynaPuff", cursive', color: 'var(--primary-color)' }}>
+          <h1 style={{ fontSize: '2.8rem', color: 'var(--primary-dark)', fontFamily: '"DynaPuff", cursive' }}>
             {isHe ? 'קבוצות למידה' : 'Study Groups'}
           </h1>
         </div>
-        <Link href="/groups/create" className="btn-primary" style={{ padding: '0.8rem 1.8rem', fontSize: '1rem', borderRadius: '16px' }}>
-          {isHe ? '+ יצירת קבוצה חדשה' : '+ Start Group'}
+        <Link href="/groups/create" className="btn-primary" style={{ padding: '0.8rem 1.5rem', borderRadius: '25px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ fontSize: '1.2rem' }}>➕</span> {isHe ? 'קבוצה חדשה' : 'New Group'}
         </Link>
-      </div>
+      </header>
 
       <div style={{ background: 'rgba(255, 152, 0, 0.1)', border: '2px dashed #ff9800', padding: '1.2rem', borderRadius: '15px', marginBottom: '2.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
         <span style={{ fontSize: '2rem' }}>⚠️</span>

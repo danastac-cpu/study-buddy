@@ -66,7 +66,8 @@ export default function HelpCenterPage() {
           duration: r.duration_mins ? `${r.duration_mins}m` : '', 
           course: r.course || r.course_name, 
           isOwn: r.requester_id === userData?.user?.id,
-          user_id: r.requester_id
+          user_id: r.requester_id,
+          created_at: r.created_at
         };
       });
       setRequests(formatted);
@@ -112,7 +113,7 @@ export default function HelpCenterPage() {
 
         <ul style={{ listStyle: 'none', padding: 0 }}>
           <li style={{ marginBottom: '1rem' }}>
-            <Link href="/help/create" className="btn-primary" style={{ width: '100%', borderRadius: '25px', padding: '1rem', background: 'linear-gradient(135deg, #A78BFA, #8B5CF6)' }}>
+            <Link href="/help/create" className="btn-primary" style={{ width: '100%', borderRadius: '25px', padding: '1rem', background: 'rgba(138, 99, 210, 0.1)', color: 'var(--primary-color)', border: '1px solid var(--primary-light)', fontWeight: 'bold' }}>
               {isHe ? 'בקשת עזרה חדשה 🙋' : 'Request New Help 🙋'}
             </Link>
           </li>
@@ -120,11 +121,35 @@ export default function HelpCenterPage() {
       </nav>
       
       <main className="main-content" style={{ padding: '2rem 3rem' }}>
-        <header style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <header style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h1 style={{ fontSize: '2.8rem', color: 'var(--primary-dark)', fontFamily: '"DynaPuff", cursive' }}>
             {isHe ? 'בקשות עזרה' : 'Help Requests'}
           </h1>
         </header>
+
+        {/* Info/Explanation Box */}
+        <div className="glass-card" style={{ 
+          background: 'rgba(138, 99, 210, 0.05)', 
+          border: '1px solid var(--primary-light)', 
+          padding: '1.5rem', 
+          borderRadius: '25px', 
+          marginBottom: '2.5rem',
+          display: 'flex',
+          gap: '1rem',
+          alignItems: 'center'
+        }}>
+          <div style={{ fontSize: '2rem' }}>💡</div>
+          <div>
+            <h4 style={{ margin: '0 0 0.4rem 0', color: 'var(--primary-color)', fontFamily: '"DynaPuff", cursive' }}>
+              {isHe ? 'איך זה עובד?' : 'How it works?'}
+            </h4>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-main)', lineHeight: '1.5' }}>
+              {isHe 
+                ? 'כאן תוכלו למצוא חברים שיעזרו לכם במקצועות השונים. הציעו עזרה, צברו כוכבים ובנו קהילת למידה חזקה!' 
+                : 'Find peers to help you with your studies. Offer help, earn stars, and build a strong learning community together!'}
+            </p>
+          </div>
+        </div>
 
         {/* Filters */}
         <div style={{ 
@@ -233,27 +258,33 @@ export default function HelpCenterPage() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #F3F0FF', paddingTop: '1.5rem' }}>
-                {req.isOwn ? (
-                  <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-                    <button onClick={() => router.push(`/help/edit/${req.id}`)} style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '900' }}>
-                        {isHe ? 'עריכה' : 'Edit'}
-                    </button>
-                    <button onClick={() => handleDeleteRequest(req.id)} style={{ background: 'none', border: 'none', color: '#FF7676', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '900' }}>
-                        {isHe ? 'מחיקה' : 'Delete'}
-                    </button>
-                  </div>
-                ) : (
-                  <div style={{ flex: 1 }}>
-                     {req.status === 'pending' && (
-                        <button onClick={() => router.push(`/chat/${req.id}`)} className="btn-primary" style={{ padding: '0.7rem 1.5rem', fontSize: '0.9rem', background: '#3B82F6', borderRadius: '18px' }}>
-                           {isHe ? 'עבור לצ׳אט' : 'Go to Chat'}
-                        </button>
-                     )}
-                  </div>
-                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                  {req.isOwn ? (
+                    <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+                      <button onClick={() => router.push(`/help/edit/${req.id}`)} style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '900' }}>
+                          {isHe ? 'עריכה' : 'Edit'}
+                      </button>
+                      <button onClick={() => handleDeleteRequest(req.id)} style={{ background: 'none', border: 'none', color: '#FF7676', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '900' }}>
+                          {isHe ? 'מחיקה' : 'Delete'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ flex: 1 }}>
+                       {req.status === 'pending' && (
+                          <button onClick={() => router.push(`/chat/${req.id}`)} className="btn-primary" style={{ padding: '0.7rem 1.5rem', fontSize: '0.9rem', background: 'rgba(59, 130, 246, 0.1)', color: '#2563EB', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: '18px', fontWeight: 'bold' }}>
+                             {isHe ? 'עבור לצ׳אט' : 'Go to Chat'}
+                          </button>
+                       )}
+                    </div>
+                  )}
+                  <span style={{ fontSize: '0.7rem', color: '#A0A0A0', fontWeight: '500' }}>
+                    {isHe ? 'פורסם ב: ' : 'Posted at: '} 
+                    {req.created_at ? new Date(req.created_at).toLocaleString(isHe ? 'he-IL' : 'en-US', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '...'}
+                  </span>
+                </div>
                 
                 {!req.isOwn && req.status === 'open' && (
-                  <button onClick={() => handleOfferHelpClick(req.id)} className="btn-primary" style={{ padding: '0.8rem 1.8rem', fontSize: '1rem', background: '#22C55E', borderRadius: '18px' }}>
+                  <button onClick={() => handleOfferHelpClick(req.id)} className="btn-primary" style={{ padding: '0.8rem 1.8rem', fontSize: '1rem', background: 'rgba(138, 99, 210, 0.1)', color: 'var(--primary-color)', border: '1px solid var(--primary-light)', borderRadius: '18px', fontWeight: 'bold' }}>
                     {isHe ? 'הצע/י עזרה' : 'Offer Help'}
                   </button>
                 )}
