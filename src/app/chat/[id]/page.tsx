@@ -259,7 +259,21 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
   };
 
   const handleApprove = async () => {
+    // 1. Send system message
     await sendMessage(null as any, '__SYSTEM_REVEAL_APPROVED__');
+    
+    // 2. Create notification for the partner
+    if (partnerProfile?.id) {
+       await supabase.from('updates').insert([{
+         user_id: partnerProfile.id,
+         type: 'new-member', // or a specific reveal type
+         request_id: unwrappedId,
+         title_he: 'הפרטים נחשפו! 🔓',
+         title_en: 'Details Revealed! 🔓',
+         content_he: `${userName} אישר/ה חשיפת פרטים. עכשיו תוכלו לראות אחד את השני.`,
+         content_en: `${userName} approved details reveal. You can now see each other.`
+       }]);
+    }
   };
 
   if (!isReady) return null;

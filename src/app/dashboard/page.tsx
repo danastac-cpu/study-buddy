@@ -583,9 +583,20 @@ export default function DashboardPage() {
                     {session.type === 'group' ? '📚' : '🤝'}
                   </div>
                   
-                  <div style={{ flex: 1 }}>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      {session.title || session.topic}
+                  <div style={{ flex: 1, overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
+                      <span style={{ 
+                        background: session.type === 'group' ? 'rgba(138, 99, 210, 0.1)' : 'rgba(76, 175, 80, 0.1)', 
+                        color: session.type === 'group' ? 'var(--primary-color)' : '#2E7D32', 
+                        fontSize: '0.7rem', 
+                        fontWeight: '800', 
+                        padding: '0.2rem 0.6rem', 
+                        borderRadius: '8px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em'
+                      }}>
+                        {session.type === 'group' ? (isHe ? '📚 קבוצת למידה' : '📚 Group') : (isHe ? '🤝 עזרה 1-על-1' : '🤝 1-on-1 Help')}
+                      </span>
                       {session.hasNewMessage && (
                         <span style={{ 
                           background: '#25D366', 
@@ -599,13 +610,37 @@ export default function DashboardPage() {
                           {isHe ? 'הודעה חדשה!' : 'New Message!'}
                         </span>
                       )}
+                    </div>
+                    
+                    <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {session.title || session.topic}
                     </h3>
-                    <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.9rem', marginTop: '0.3rem' }}>
-                      {session.type === 'group' ? session.details : `${isHe ? 'עם' : 'With'} ${session.otherName} • ${session.dateStr}`}
-                    </p>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.4rem' }}>
+                      <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        {session.type === 'group' ? (
+                          <span style={{ opacity: 0.8 }}>{session.details}</span>
+                        ) : (
+                          <>
+                             <span>👤</span> {isHe ? 'עם' : 'With'} {session.otherName}
+                          </>
+                        )}
+                      </p>
+                      
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '0.3rem', 
+                        color: session.dateStr === 'TBD' || session.dateStr === 'טרם נקבע' ? '#999' : 'var(--primary-color)',
+                        fontSize: '0.85rem',
+                        fontWeight: '800'
+                      }}>
+                        <span>🕒</span> {session.dateStr}
+                      </div>
+                    </div>
                   </div>
 
-                  <div style={{ color: session.type === 'group' ? 'var(--primary-color)' : '#4CAF50', fontWeight: '600', fontSize: '0.9rem' }}>
+                  <div style={{ color: session.type === 'group' ? 'var(--primary-color)' : '#4CAF50', fontWeight: '800', fontSize: '0.9rem' }}>
                     {isHe ? 'לך לצ׳אט' : 'Go to Chat'} &rarr;
                   </div>
                 </div>

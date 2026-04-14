@@ -122,9 +122,26 @@ export default function GroupsBrowserPage() {
     if (group.joinedStatus === 'none') {
       const isFull = group.members.length >= group.maxMembers;
       const status = isFull ? 'waiting' : 'approved';
-      await supabase.from('group_enrollments').insert([{ group_id: groupId, user_id: currentUser.id, status: status }]);
-      fetchGroups();
-      if (status === 'approved') router.push(`/groups/${groupId}`);
+      const { error } = await supabase.from('group_enrollments').insert([{ group_id: groupId, user_id: currentUser.id, status: status }]);
+      
+      if (!error) {
+        // Notify manager
+        const myProfile = await supabase.from('profiles').select('alias').eq('id', currentUser.id).single();
+        const joinerName = myProfile.data?.alias || (isHe ? 'חבר חדש' : 'A new member');
+        
+        await supabase.from('updates').insert([{
+          user_id: group.managerId,
+          type: 'new-member',
+          group_id: groupId,
+          title_he: 'מצטרף חדש לקבוצה! ✨',
+          title_en: 'New member joined! ✨',
+          content_he: `${joinerName} הצטרף/ה לקבוצה שלך: ${group.title}.`,
+          content_en: `${joinerName} joined your group: ${group.title}.`
+        }]);
+
+        fetchGroups();
+        if (status === 'approved') router.push(`/groups/${groupId}`);
+      }
     }
   };
 

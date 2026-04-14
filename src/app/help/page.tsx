@@ -86,8 +86,30 @@ export default function HelpCenterPage() {
 
   const handleOfferHelpClick = async (postId: string) => {
     if (!userId) return;
+    
+    // 1. Get the request details to notify the requester
+    const { data: reqData } = await supabase.from('help_requests').select('*, profiles:profiles!requester_id(alias)').eq('id', postId).single();
+    
+    // 2. Update status
     const { error } = await supabase.from('help_requests').update({ status: 'pending', helper_id: userId }).eq('id', postId);
-    if (!error) fetchData();
+    
+    if (!error && reqData) {
+      // 3. Create Update for the requester
+      const myProfile = await supabase.from('profiles').select('alias').eq('id', userId).single();
+      const helperName = myProfile.data?.alias || (isHe ? 'מישהו' : 'Someone');
+
+      await supabase.from('updates').insert([{
+        user_id: reqData.requester_id,
+        type: 'help',
+        request_id: postId,
+        title_he: 'יש לך הצעה לעזרה! 🤝',
+        title_en: 'Someone offered help! 🤝',
+        content_he: `${helperName} הציע/ה לעזור לך ב${reqData.course || reqData.course_name}.`,
+        content_en: `${helperName} offered to help you with ${reqData.course || reqData.course_name}.`
+      }]);
+
+      fetchData();
+    }
   };
 
   const handleDeleteRequest = async (postId: string) => {
@@ -128,11 +150,11 @@ export default function HelpCenterPage() {
         </header>
 
         {/* Info/Explanation Box */}
-        <div className="glass-card" style={{ 
-          background: 'rgba(138, 99, 210, 0.05)', 
-          border: '1px solid var(--primary-light)', 
-          padding: '1.5rem', 
-          borderRadius: '25px', 
+        <div style={{ 
+          background: 'rgba(76, 175, 80, 0.08)', 
+          border: '2px dashed #4CAF50', 
+          padding: '1.2rem', 
+          borderRadius: '15px', 
           marginBottom: '2.5rem',
           display: 'flex',
           gap: '1rem',
@@ -140,7 +162,7 @@ export default function HelpCenterPage() {
         }}>
           <div style={{ fontSize: '2rem' }}>💡</div>
           <div>
-            <h4 style={{ margin: '0 0 0.4rem 0', color: 'var(--primary-color)', fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive' }}>
+            <h4 style={{ margin: '0 0 0.4rem 0', color: '#2E7D32', fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive' }}>
               {isHe ? 'איך זה עובד?' : 'How it works?'}
             </h4>
             <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-main)', lineHeight: '1.5' }}>
