@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/hooks/useLanguage';
 import { ScienceAvatar, ACCESSORIES, AVATARS, PASTEL_COLORS } from '@/components/ScienceAvatar';
+import { formatDateIsrael, getUrgencyLabel } from '@/lib/dateUtils';
 import { translations } from '@/lib/i18n';
 import { emailService } from '@/lib/emailService';
 import { OnboardingTour } from '@/components/OnboardingTour';
@@ -103,7 +104,9 @@ export default function DashboardPage() {
         setAcceptedGroups(allGroups.map(g => ({
           id: g.id,
           title: isHe ? (g.title || g.topic || 'קבוצה') : (g.title || g.topic || 'Group'),
-          details: (g.session_time === 'TBD' || !g.session_time) ? (isHe ? 'טרם נקבע' : 'TBD') : g.session_time
+          details: (g.session_time === 'TBD' || !g.session_time) ? (isHe ? 'טרם נקבע' : 'TBD') : g.session_time,
+          displayDate: formatDateIsrael(g.session_time, language),
+          urgency: getUrgencyLabel(g.session_time)
         })));
 
         // 4. Fetch Active Help Sessions (1-on-1 Chats)
@@ -130,7 +133,7 @@ export default function DashboardPage() {
               dateStr: h.date_str || (isHe ? 'טרם נקבע' : 'TBD')
             };
           });
-          setActiveHelpSessions(activeHelp.filter(h => h.status === 'offered'));
+          setActiveHelpSessions(activeHelp.filter(h => h.status === 'offered' || h.status === 'active'));
           setAllUserHelpRequests(helpData.filter(h => h.requester_id === authData.user.id));
         }
 
@@ -156,13 +159,17 @@ export default function DashboardPage() {
 
         // 6. Check for Past Due Help Requests (Reschedule Logic)
         const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
         const pastDue = helpData?.filter(h => {
           if (!h.date_str || h.status !== 'open' || h.date_str === 'TBD') return false;
           try {
             const datePart = h.date_str.split(' ')[0];
             const reqDate = new Date(datePart);
             if (isNaN(reqDate.getTime())) return false;
-            return reqDate < now && !updatesData?.some(u => u.type === 'reschedule' && u.request_id === h.id);
+            
+            // Only past due if it is strictly BEFORE today
+            return reqDate < startOfToday && !updatesData?.some(u => u.type === 'reschedule' && u.request_id === h.id);
           } catch(e) { return false; }
         });
 
@@ -550,7 +557,7 @@ export default function DashboardPage() {
             {/* Unified Sessions List: Groups + Confirmed Help */}
             {[
               ...acceptedGroups.map(g => ({ ...g, type: 'group' })),
-              ...activeHelpSessions.map(h => ({ ...h, type: 'help' }))
+              ...activeHelpSessions.map(h => ({ ...h, type: 'help', urgency: getUrgencyLabel(h.dateStr), displayDate: formatDateIsrael(h.dateStr, language) }))
             ].sort((a, b) => 0).map((session, idx) => (
               <Link 
                 key={`${session.type}-${session.id}-${idx}`} 
@@ -565,11 +572,20 @@ export default function DashboardPage() {
                     gap: '1.5rem', 
                     cursor: 'pointer', 
                     transition: 'transform 0.2s', 
-                    borderLeft: isHe ? 'none' : `6px solid ${session.type === 'group' ? 'var(--primary-color)' : '#4CAF50'}`, 
-                    borderRight: isHe ? `6px solid ${session.type === 'group' ? 'var(--primary-color)' : '#4CAF50'}` : 'none',
-                    position: 'relative'
+                    borderLeft: isHe ? 'none' : `6px solid ${session.urgency === 'today' ? '#FF5252' : (session.type === 'group' ? 'var(--primary-color)' : '#4CAF50')}`, 
+                    borderRight: isHe ? `6px solid ${session.urgency === 'today' ? '#FF5252' : (session.type === 'group' ? 'var(--primary-color)' : '#4CAF50')}` : 'none',
+                    position: 'relative',
+                    boxShadow: session.urgency === 'today' ? '0 0 15px rgba(255, 82, 82, 0.2)' : undefined,
+                    animation: session.urgency === 'today' ? 'pulse-border 2s infinite' : undefined
                   }}
                 >
+                  <style>{`
+                    @keyframes pulse-border {
+                      0% { box-shadow: 0 0 15px rgba(255, 82, 82, 0.2); }
+                      50% { box-shadow: 0 0 25px rgba(255, 82, 82, 0.4); }
+                      100% { box-shadow: 0 0 15px rgba(255, 82, 82, 0.2); }
+                    }
+                  `}</style>
                   <div style={{ 
                     width: '60px', 
                     height: '60px', 
@@ -627,18 +643,27 @@ export default function DashboardPage() {
                         )}
                       </p>
                       
-                      <div style={{ 
+                        <div style={{ 
                         display: 'flex', 
                         alignItems: 'center', 
                         gap: '0.3rem', 
-                        color: session.dateStr === 'TBD' || session.dateStr === 'טרם נקבע' ? '#999' : 'var(--primary-color)',
+                        color: session.urgency === 'today' ? '#FF5252' : (session.displayDate === 'טרם נקבע' || session.displayDate === 'TBD' ? '#999' : 'var(--primary-color)'),
                         fontSize: '0.85rem',
                         fontWeight: '800'
                       }}>
-                        <span>🕒</span> {session.dateStr}
+                        <span>🕒</span> {session.displayDate}
+                        {session.urgency === 'today' && <span style={{ marginLeft: '0.3rem', animation: 'blink 1s infinite' }}>🚨 {isHe ? 'היום!' : 'Today!'}</span>}
                       </div>
                     </div>
                   </div>
+
+                  <style>{`
+                    @keyframes blink {
+                      0% { opacity: 1; }
+                      50% { opacity: 0.5; }
+                      100% { opacity: 1; }
+                    }
+                  `}</style>
 
                   <div style={{ color: session.type === 'group' ? 'var(--primary-color)' : '#4CAF50', fontWeight: '800', fontSize: '0.9rem' }}>
                     {isHe ? 'לך לצ׳אט' : 'Go to Chat'} &rarr;
@@ -757,9 +782,13 @@ export default function DashboardPage() {
                         <div style={{ marginTop: '1.2rem', display: 'flex', gap: '0.8rem' }}>
                           {notif.type === 'approval' || notif.type === 'help' ? (
                             <>
-                              <button onClick={() => handleActionWithCleanup(notif.id, () => router.push(`/chat/${notif.requestId}?role=requester`))} className="btn-primary" style={{ background: '#4CAF50', padding: '0.6rem 1.2rem', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '15px' }}>
-                                {isHe ? 'אשר פרטים ולך לצ׳אט!' : 'Approve & Go to Chat!'}
-                              </button>
+<button onClick={() => handleActionWithCleanup(notif.id, async () => {
+    // Set status to active/offered so it shows in sessions
+    await supabase.from('help_requests').update({ status: 'active' }).eq('id', notif.requestId);
+    router.push(`/chat/${notif.requestId}?role=requester`);
+})} className="btn-primary" style={{ background: '#4CAF50', padding: '0.6rem 1.2rem', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '15px' }}>
+  {isHe ? 'אשר פרטים ולך לצ׳אט!' : 'Approve & Go to Chat!'}
+</button>
                               <button onClick={() => handleDeclineUpdate(notif.id, notif.requestId)} className="btn-secondary" style={{ padding: '0.6rem 1rem', fontSize: '0.9rem', borderRadius: '15px' }}>
                                 {isHe ? 'דחה' : 'Decline'}
                               </button>

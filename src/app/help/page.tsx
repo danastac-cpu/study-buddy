@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { formatDateIsrael } from '@/lib/dateUtils';
 import { useLanguage } from '@/hooks/useLanguage';
 import { translations } from '@/lib/i18n';
 import { ScienceAvatar, ACCESSORIES } from '@/components/ScienceAvatar';
@@ -165,10 +166,10 @@ export default function HelpCenterPage() {
             <h4 style={{ margin: '0 0 0.4rem 0', color: '#2E7D32', fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive' }}>
               {isHe ? 'איך זה עובד?' : 'How it works?'}
             </h4>
-            <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-main)', lineHeight: '1.5' }}>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-main)', lineHeight: '1.5', fontWeight: '500' }}>
               {isHe 
-                ? 'כאן תוכלו למצוא חברים שיעזרו לכם במקצועות השונים. הציעו עזרה, צברו כוכבים ובנו קהילת למידה חזקה!' 
-                : 'Find peers to help you with your studies. Offer help, earn stars, and build a strong learning community together!'}
+                ? 'כאן תוכלו למצוא חברים שיעזרו לכם במקצועות השונים. השירות אנונימי לחלוטין עד שתחליטו לחשוף פרטים בצ\'אט!' 
+                : 'Find peers to help you. Help is completely anonymous until you both choose to reveal details in chat!'}
             </p>
           </div>
         </div>
@@ -258,11 +259,18 @@ export default function HelpCenterPage() {
                     }}>
                       {req.urgencyRaw === 'today' ? '🚨 ' : '📅 '} {req.urgencyLabel}
                     </span>
-                    {req.urgencyRaw === 'this_week' && req.displayDate && (
-                      <span style={{ fontSize: '0.75rem', color: '#999', fontWeight: 'bold', textAlign: 'center' }}>
-                        {req.displayDate}
-                      </span>
-                    )}
+                    <div style={{ 
+                        color: 'var(--primary-color)', 
+                        fontWeight: '800', 
+                        fontSize: '0.85rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.3rem',
+                        marginTop: '0.2rem'
+                      }}>
+                        <span>🕒</span> {req.displayDate}
+                      </div>
                   </div>
 
                   {req.duration && (

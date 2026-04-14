@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { translations } from '@/lib/i18n';
 import { useLanguage } from '@/hooks/useLanguage';
 import { supabase } from '@/lib/supabase';
+import { formatDateIsrael } from '@/lib/dateUtils';
 
 interface StudyGroup {
   id: string;
@@ -64,14 +65,7 @@ export default function GroupsBrowserPage() {
         const deg = g.profiles?.degree || '';
         const yr = g.profiles?.year_of_study || g.profiles?.year || '';
 
-        const formatDate = (ds: string) => {
-          if (!ds || ds === 'TBD' || ds === 'טרם נקבע') return isHe ? 'טרם נקבע' : 'TBD';
-          try {
-            const d = new Date(ds);
-            if (isNaN(d.getTime())) return ds;
-            return `${d.getDate()}/${d.getMonth() + 1} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-          } catch(e) { return ds; }
-        };
+        const formatDate = (ds: string) => formatDateIsrael(ds, language);
 
         return {
           id: g.id,
@@ -114,6 +108,21 @@ export default function GroupsBrowserPage() {
       const confirmLeave = confirm(isHe ? 'האם אתה מעוניין לעזוב את קבוצת הלמידה?' : 'Are you sure you want to leave this study group?');
       if (confirmLeave) {
         await supabase.from('group_enrollments').delete().eq('group_id', groupId).eq('user_id', currentUser.id);
+        
+        // Notify waitlisted users if a spot opened
+        if (group.waitlist && group.waitlist.length > 0) {
+          const nextInLine = group.waitlist[0];
+          await supabase.from('updates').insert([{
+            user_id: nextInLine.id,
+            type: 'waiting-list-open',
+            group_id: groupId,
+            title_he: 'התפנה מקום בקבוצה! 📢',
+            title_en: 'A spot opened in the group! 📢',
+            content_he: `התפנה מקום בקבוצה ${group.title}. הצטרף עכשיו לפני שייתפס!`,
+            content_en: `A spot opened in ${group.title}. Join now before it's taken!`
+          }]);
+        }
+        
         fetchGroups();
       }
       return;
@@ -237,20 +246,31 @@ export default function GroupsBrowserPage() {
                 <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.6rem', color: 'var(--primary-color)', fontWeight: '900', fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive', width: '70%', lineHeight: '1.2' }}>{group.title}</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem' }}>
                    <span style={{ 
-                      background: isFull ? '#FFEDED' : '#F0FDF4', 
-                      color: isFull ? '#FF7676' : '#22C55E', 
+                      background: isFull ? '#FFF4E5' : '#F0FDF4', 
+                      color: isFull ? '#E68A00' : '#22C55E', 
                       padding: '0.5rem 0.8rem', borderRadius: '12px', 
-                      fontSize: '1.2rem', fontWeight: '900',
+                      fontSize: '1.1rem', fontWeight: '900',
                       boxShadow: '0 4px 10px rgba(0,0,0,0.05)',
                       textAlign: 'center'
                    }}>
-                     {isFull ? (isHe ? 'מלא' : 'FULL') : (isHe ? `${slotsLeft} מקומות פנויים` : `${slotsLeft} SPOTS LEFT`)}
+                     {isFull ? (isHe ? 'רשימה מלאה' : 'LIST FULL') : (isHe ? `${slotsLeft} מקומות פנויים` : `${slotsLeft} SPOTS LEFT`)}
                    </span>
                    <span style={{ fontSize: '1rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>
                       {group.members.length}/{group.maxMembers}
                    </span>
                 </div>
               </div>
+
+              {group.description && (
+                <div style={{ marginBottom: '1.2rem' }}>
+                   <h4 style={{ margin: '0 0 0.3rem 0', fontSize: '0.9rem', color: 'var(--text-main)', fontWeight: '800' }}>
+                     {isHe ? 'מה תלמדו?' : 'What will you learn?'}
+                   </h4>
+                   <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                     {group.description}
+                   </p>
+                </div>
+              )}
               
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.2rem' }}>
                 <span style={{ background: '#F5F1FF', color: 'var(--primary-color)', padding: '0.4rem 0.6rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '800' }}>📚 {group.course}</span>
@@ -272,8 +292,19 @@ export default function GroupsBrowserPage() {
                 <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
                   {group.joinedStatus === 'approved' ? (
                     <>
-                      <button onClick={() => router.push('/groups/' + group.id)} className="btn-primary" style={{ padding: '0.6rem 1.4rem', borderRadius: '14px', fontSize: '1rem' }}>
-                        {isHe ? 'צאט' : 'Chat'}
+                      <button 
+                        onClick={() => router.push('/groups/' + group.id)} 
+                        className={isFull ? "btn-secondary" : "btn-primary"} 
+                        style={{ 
+                          padding: '0.7rem 1.6rem', 
+                          borderRadius: '16px', 
+                          fontSize: '1rem',
+                          background: isFull ? '#FF9800' : undefined,
+                          color: isFull ? 'white' : undefined,
+                          border: 'none'
+                        }}
+                      >
+                        {actionLabel}
                       </button>
                       <button onClick={() => handleActionClick(group.id)} style={{ background: 'transparent', border: 'none', color: '#FF7676', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>
                         {isHe ? 'צא מהקבוצה' : 'Leave'}
