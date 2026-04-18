@@ -105,7 +105,7 @@ export default function HelpCenterPage() {
         request_id: postId,
         title_he: 'יש לך הצעה לעזרה! 🤝',
         title_en: 'Someone offered help! 🤝',
-        content_he: `${helperName} הציע/ה לעזור לך ב${reqData.course || reqData.course_name}.`,
+        content_he: `${helperName} הציע/ה לעזור לך בבקשת העזרה שפרסמת.`,
         content_en: `${helperName} offered to help you with ${reqData.course || reqData.course_name}.`
       }]);
 
@@ -297,6 +297,11 @@ export default function HelpCenterPage() {
                       <button onClick={() => handleDeleteRequest(req.id)} style={{ background: 'none', border: 'none', color: '#FF7676', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '900' }}>
                           {isHe ? 'מחיקה' : 'Delete'}
                       </button>
+                      {(req.status === 'pending' || req.status === 'active') && (
+                        <button onClick={() => router.push(`/chat/${req.id}?role=requester`)} className="btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', borderRadius: '15px' }}>
+                            {isHe ? 'לך לצ׳אט' : 'Go to Chat'}
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <div style={{ flex: 1 }}>

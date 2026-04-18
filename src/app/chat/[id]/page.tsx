@@ -329,10 +329,10 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
                    width: '100%', 
                    padding: '0.8rem', 
                    fontSize: '0.95rem', 
-                   background: '#FFD700', 
-                   color: '#000', 
+                   background: '#FFF0B3', 
+                   color: '#7A5C00', 
                    fontWeight: '900',
-                   boxShadow: '0 4px 15px rgba(255, 215, 0, 0.3)',
+                   boxShadow: '0 4px 15px rgba(255, 240, 179, 0.5)',
                    border: 'none',
                    borderRadius: '16px'
                 }}
