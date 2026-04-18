@@ -141,6 +141,21 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
       };
       setSavedTimeStr(formatDate(editTimeValue));
       setIsEditingTime(false);
+      
+      // Notify other members of reschedule
+      members.forEach((m) => {
+         if (m.user_id !== userId) {
+             supabase.from('updates').insert([{
+                 user_id: m.user_id,
+                 type: 'reschedule_report',
+                 group_id: roomId,
+                 title_he: 'עדכון במועד המפגש הקרוב 🗓️',
+                 title_en: 'Update in upcoming session 🗓️',
+                 content_he: `שים לב, שעת המפגש בקבוצה שונתה. המועד החדש: ${formatDate(editTimeValue)}`,
+                 content_en: `Attention, the session time was changed. New time: ${formatDate(editTimeValue)}`
+             }]).then(() => {});
+         }
+      });
     }
   };
 
@@ -313,9 +328,7 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
                     <span style={{ fontWeight: '500', color: (savedTimeStr === 'לא נקבע מועד' || savedTimeStr === 'TBD') ? '#FF9800' : 'inherit' }}>
                       {savedTimeStr}
                     </span>
-                    {userId === savedManagerId && (
-                      <button onClick={() => setIsEditingTime(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem' }} title={isHe ? "ערוך מועד" : "Edit Time"}>✏️</button>
-                    )}
+                    <button onClick={() => setIsEditingTime(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem' }} title={isHe ? "ערוך מועד" : "Edit Time"}>✏️</button>
                   </div>
                 )}
               </div>

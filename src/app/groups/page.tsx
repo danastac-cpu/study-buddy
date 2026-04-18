@@ -229,11 +229,12 @@ export default function GroupsBrowserPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem' }}>
         {filteredGroups.map((group) => {
-          const isFull = group.members.length >= group.maxMembers;
-          const slotsLeft = group.maxMembers - group.members.length;
+          const totalMembers = group.members.length + 1; // Explicitly include manager
+          const isFull = totalMembers >= group.maxMembers;
+          const slotsLeft = Math.max(0, group.maxMembers - totalMembers);
           
           let actionLabel = isHe ? (isFull ? 'רשימת המתנה' : 'הצטרפות') : (isFull ? 'Waitlist' : 'Join');
-          if (group.joinedStatus === 'approved') actionLabel = isHe ? 'צאט' : 'Chat';
+          if (group.joinedStatus === 'approved') actionLabel = isHe ? 'הצטרפת! עברו לצ׳אט' : 'Joined! Go to Chat';
           if (group.joinedStatus === 'waiting') actionLabel = isHe ? 'צא מהמתנה' : 'Leave Waitlist';
 
           return (
@@ -256,7 +257,7 @@ export default function GroupsBrowserPage() {
                      {isFull ? (isHe ? 'רשימה מלאה' : 'LIST FULL') : (isHe ? `${slotsLeft} מקומות פנויים` : `${slotsLeft} SPOTS LEFT`)}
                    </span>
                    <span style={{ fontSize: '1rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>
-                      {group.members.length}/{group.maxMembers}
+                      {totalMembers}/{group.maxMembers}
                    </span>
                    {group.waitlist.length > 0 && (
                      <span style={{ fontSize: '0.8rem', color: '#E68A00', fontWeight: '900', marginTop: '0.2rem', textAlign: 'center' }}>
@@ -278,7 +279,7 @@ export default function GroupsBrowserPage() {
               )}
               
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.2rem' }}>
-                <span style={{ background: '#F5F1FF', color: 'var(--primary-color)', padding: '0.4rem 0.6rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '800' }}>📚 {group.course}</span>
+                <span style={{ background: '#F5F1FF', color: 'var(--primary-color)', padding: '0.4rem 0.6rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '800' }}>📚 {group.course && group.course.includes('-') && group.course.length > 20 ? (isHe ? 'קבוצת למידה' : 'Study Group') : (group.course || 'קבוצה')}</span>
                 {group.degree && <span style={{ background: '#F5F1FF', color: 'var(--primary-color)', padding: '0.4rem 0.6rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '800' }}>🎓 {group.degree}</span>}
                 {group.year && <span style={{ background: '#F5F1FF', color: 'var(--primary-color)', padding: '0.4rem 0.6rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '800' }}>📅 {group.year}</span>}
               </div>
@@ -298,18 +299,11 @@ export default function GroupsBrowserPage() {
                   {group.joinedStatus === 'approved' ? (
                     <>
                       <button 
-                        onClick={() => router.push('/groups/' + group.id)} 
-                        className={isFull ? "btn-secondary" : "btn-primary"} 
-                        style={{ 
-                          padding: '0.7rem 1.6rem', 
-                          borderRadius: '16px', 
-                          fontSize: '1rem',
-                          background: isFull ? '#FF9800' : undefined,
-                          color: isFull ? 'white' : undefined,
-                          border: 'none'
-                        }}
+                        onClick={() => router.push(`/groups/${group.id}`)}
+                        className="btn-primary" 
+                        style={{ padding: '0.6rem 1.5rem', fontSize: '0.9rem', borderRadius: '20px', background: 'var(--primary-color)', color: 'white', fontWeight: 'bold' }}
                       >
-                        {actionLabel}
+                         {actionLabel}
                       </button>
                       <button onClick={() => handleActionClick(group.id)} style={{ background: 'transparent', border: 'none', color: '#FF7676', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>
                         {isHe ? 'צא מהקבוצה' : 'Leave'}

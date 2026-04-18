@@ -139,10 +139,13 @@ export default function CreateGroupPage() {
                   <input type="time" className="input-field" style={{ flex: 1 }} value={createTime} onChange={e => setCreateTime(e.target.value)} />
                 </div>
               </div>
-              <div style={{ width: '150px' }}>
-                <label style={{ display: 'block', fontWeight: '500', marginBottom: '0.5rem', color: 'var(--text-main)' }}>
+              <div style={{ width: '180px' }}>
+                <label style={{ display: 'block', fontWeight: '500', marginBottom: '0.2rem', color: 'var(--text-main)' }}>
                   {isHe ? 'מספר חברים מקסימלי' : 'Max Members'}
                 </label>
+                <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                  {isHe ? '(כולל אותך)' : '(Includes You)'}
+                </span>
                 <input type="number" min="2" max="10" value={maxMems} onChange={e => setMaxMems(e.target.value)} className="input-field" required />
               </div>
             </div>

@@ -164,30 +164,79 @@ export default function DashboardPage() {
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         
+        let newUpdatesToInsert: any[] = [];
+
+        // --- RESCHEDULE LOGIC (Urgency Based) ---
         const pastDue = helpData?.filter(h => {
-          if (!h.date_str || h.status !== 'open' || h.date_str === 'TBD') return false;
-          try {
-            const datePart = h.date_str.split(' ')[0];
-            const reqDate = new Date(datePart);
-            if (isNaN(reqDate.getTime())) return false;
-            
-            // Only past due if it is strictly BEFORE today
-            return reqDate < startOfToday && !updatesData?.some(u => u.type === 'reschedule' && u.request_id === h.id);
-          } catch(e) { return false; }
+          if (h.status !== 'open') return false;
+          if (updatesData?.some(u => u.type === 'reschedule' && u.request_id === h.id)) return false;
+          
+          if (h.urgency_level === 'today') {
+             const reqTime = new Date(h.created_at);
+             // If created on a prior day, it's past due today.
+             const reqStartOfDay = new Date(reqTime.getFullYear(), reqTime.getMonth(), reqTime.getDate());
+             return reqStartOfDay < startOfToday;
+          }
+          if (h.urgency_level === 'this_week') {
+             const reqTime = new Date(h.created_at);
+             return (now.getTime() - reqTime.getTime()) > 7 * 24 * 60 * 60 * 1000;
+          }
+          if (h.date_str && h.date_str !== 'TBD') {
+             try {
+               const reqDate = new Date(h.date_str.split(' ')[0]);
+               return reqDate < startOfToday;
+             } catch(e) { return false; }
+          }
+          return false;
         });
 
         if (pastDue && pastDue.length > 0) {
           for (const req of pastDue) {
-            await supabase.from('updates').insert([{
+            newUpdatesToInsert.push({
               user_id: authData.user.id,
               type: 'reschedule',
               request_id: req.id,
               title_he: 'האם תרצה לעדכן את בקשת העזרה?',
               title_en: 'Would you like to reschedule your request?',
-              content_he: `התאריך שקבעת לבקשה ב-${req.course_name} עבר. תרצה לעדכן או למחוק?`,
-              content_en: `The date for your ${req.course_name} request has passed. Update or delete?`
-            }]);
+              content_he: `המועד שקבעת לבקשה ב-${req.course_name} עבר. תרצה לעדכן או למחוק?`,
+              content_en: `The timeframe for your ${req.course_name} request has passed. Update or delete?`
+            });
           }
+        }
+
+        // --- REMINDER LOGIC (< 3 Hours) ---
+        const sessionsToCheck = [
+           ...helpData?.filter(h => h.status === 'active').map(h => ({ id: h.id, time: h.date_str, title: h.course_name, type: 'help' })) || [],
+           ...allGroups.map(g => ({ id: g.id, time: g.session_time, title: g.title || g.topic || 'Group', type: 'group' }))
+        ];
+
+        sessionsToCheck.forEach(session => {
+           if (!session.time || session.time === 'TBD' || session.time.includes('טרם נקבע') || !session.time.includes('-')) return;
+           try {
+              const sessionDate = new Date(session.time);
+              if (isNaN(sessionDate.getTime())) return;
+              
+              const hoursDiff = (sessionDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+              // Between 0 and 3 hours from now!
+              if (hoursDiff > 0 && hoursDiff <= 3) {
+                 if (!updatesData?.some(u => u.type === 'reminder' && (u.request_id === session.id || u.group_id === session.id))) {
+                    newUpdatesToInsert.push({
+                      user_id: authData.user.id,
+                      type: 'reminder',
+                      request_id: session.type === 'help' ? session.id : null,
+                      group_id: session.type === 'group' ? session.id : null,
+                      title_he: 'תזכורת מפגש קרוב! ⏰',
+                      title_en: 'Upcoming Session Reminder! ⏰',
+                      content_he: `היי! המפגש בנושא ${session.title} מתחיל בקרוב בשעה ${sessionDate.getHours().toString().padStart(2, '0')}:${sessionDate.getMinutes().toString().padStart(2, '0')}. נא להיכנס לאזור הלמידה בזמן!`,
+                      content_en: `Hey! The session about ${session.title} starts soon at ${sessionDate.getHours().toString().padStart(2, '0')}:${sessionDate.getMinutes().toString().padStart(2, '0')}!`
+                    });
+                 }
+              }
+           } catch(e) {}
+        });
+
+        if (newUpdatesToInsert.length > 0) {
+          await supabase.from('updates').insert(newUpdatesToInsert);
           // Refetch updates to show them immediately
           const { data: newUpdates } = await supabase.from('updates').select('*').eq('user_id', authData.user.id).order('created_at', { ascending: false });
           if (newUpdates) setNotifications(newUpdates.map(u => ({ id: u.id, type: u.type, titleHe: u.title_he, titleEn: u.title_en, contentHe: u.content_he, contentEn: u.content_en, requestId: u.request_id, groupId: u.group_id })));
@@ -755,6 +804,16 @@ export default function DashboardPage() {
                    cardBorder = '2px solid #FFE082';
                    icon = '🌟';
                    accentColor = '#F57F17';
+                } else if (notif.type === 'reminder') {
+                   cardBg = '#FFF0F5'; // Very light pastel pink
+                   cardBorder = '2px solid #FFC0CB';
+                   icon = '⏰';
+                   accentColor = '#D81B60';
+                } else if (notif.type === 'reschedule_report') {
+                   cardBg = '#F3E5F5';
+                   cardBorder = '2px solid #E1BEE7';
+                   icon = '🗓️';
+                   accentColor = '#8E24AA';
                 }
 
                 return (
@@ -813,6 +872,10 @@ export default function DashboardPage() {
                             ) : notif.type === 'helper-approved' ? (
                               <button onClick={() => handleActionWithCleanup(notif.id, () => router.push(`/chat/${notif.requestId}?role=helper`))} className="btn-primary" style={{ background: '#2196F3', padding: '0.6rem 1.5rem', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '15px' }}>
                                 {isHe ? 'לך לצ׳אט' : 'Go to Chat'}
+                              </button>
+                            ) : notif.type === 'reminder' || notif.type === 'reschedule_report' ? (
+                              <button onClick={() => handleActionWithCleanup(notif.id, () => {})} className="btn-primary" style={{ background: 'var(--primary-color)', padding: '0.6rem 1.5rem', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '15px' }}>
+                                {isHe ? 'הבנתי' : 'Got It'}
                               </button>
                             ) : notif.type === 'waiting-list-open' ? (
                               <>
