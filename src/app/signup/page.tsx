@@ -360,7 +360,12 @@ export default function SignupPage() {
                 {isHe ? 'הרשמה עם Gmail והמשך' : 'Register with Gmail & Continue'}
               </button>
             )}
-            {/* The link under the button is gone as requested */}
+            
+            <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+              <Link href="/" style={{ fontSize: '0.9rem', color: '#6B6871', textDecoration: 'none', fontWeight: 500, transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#8A63D2'} onMouseLeave={(e) => e.currentTarget.style.color = '#6B6871'}>
+                {isHe ? 'חזרה לעמוד הראשי' : 'Back to Main Page'}
+              </Link>
+            </div>
           </div>
         </div>
       </div>

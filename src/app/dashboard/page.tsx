@@ -125,11 +125,10 @@ export default function DashboardPage() {
             return {
               id: h.id,
               type: 'help',
-              topic: h.course_name || h.course,
-              otherName: otherParty?.alias || (isHe ? 'ממתין לעוזר...' : 'Waiting for helper...'),
               isRequester,
               status: h.status,
               hasNewMessage,
+              topic: h.course_name && !h.course_name.includes('-') ? h.course_name : (h.course && !h.course.includes('-') ? h.course : (isHe ? 'שיעור עזרה' : 'Help Lesson')),
               dateStr: h.date_str || (isHe ? 'טרם נקבע' : 'TBD')
             };
           });
@@ -748,8 +747,8 @@ export default function DashboardPage() {
                    icon = '⌛';
                    accentColor = '#E65100';
                 } else if (notif.type === 'star-received') {
-                   cardBg = 'rgba(255, 215, 0, 0.12)';
-                   cardBorder = '2px solid rgba(255, 215, 0, 0.4)';
+                   cardBg = 'rgba(255, 215, 0, 0.05)';
+                   cardBorder = '2px solid rgba(255, 215, 0, 0.2)';
                    icon = '🌟';
                    accentColor = '#D4AF37';
                 }
@@ -782,22 +781,30 @@ export default function DashboardPage() {
                         <div style={{ marginTop: '1.2rem', display: 'flex', gap: '0.8rem' }}>
                           {notif.type === 'approval' || notif.type === 'help' ? (
                             <>
-<button onClick={() => handleActionWithCleanup(notif.id, async () => {
-    // Set status to active/offered so it shows in sessions
-    await supabase.from('help_requests').update({ status: 'active' }).eq('id', notif.requestId);
-    router.push(`/chat/${notif.requestId}?role=requester`);
-})} className="btn-primary" style={{ background: '#4CAF50', padding: '0.6rem 1.2rem', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '15px' }}>
-  {isHe ? 'אשר פרטים ולך לצ׳אט!' : 'Approve & Go to Chat!'}
-</button>
-                              <button onClick={() => handleDeclineUpdate(notif.id, notif.requestId)} className="btn-secondary" style={{ padding: '0.6rem 1rem', fontSize: '0.9rem', borderRadius: '15px' }}>
-                                {isHe ? 'דחה' : 'Decline'}
+                               <button onClick={() => handleActionWithCleanup(notif.id, async () => {
+                                    await supabase.from('help_requests').update({ status: 'active' }).eq('id', notif.requestId);
+                                    router.push(`/chat/${notif.requestId}?role=requester`);
+                                })} className="btn-primary" style={{ background: '#4CAF50', padding: '0.6rem 1.2rem', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '15px' }}>
+                                  {isHe ? 'הבנתי! אעבור לצ׳אט' : 'Got it! Go to Chat'}
+                                </button>
+                                <button onClick={() => handleDeclineUpdate(notif.id, notif.requestId)} className="btn-secondary" style={{ padding: '0.6rem 1rem', fontSize: '0.9rem', borderRadius: '15px' }}>
+                                  {isHe ? 'דחה את הבקשה' : 'Decline Request'}
+                                </button>
+                              </>
+                            ) : notif.type === 'helper-approved' ? (
+                              <button onClick={() => handleActionWithCleanup(notif.id, () => router.push(`/chat/${notif.requestId}?role=helper`))} className="btn-primary" style={{ background: '#2196F3', padding: '0.6rem 1.5rem', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '15px' }}>
+                                {isHe ? 'הבנתי! אעבור לצ׳אט' : 'Got it! Go to Chat'}
                               </button>
-                            </>
-                          ) : notif.type === 'helper-approved' ? (
-                            <button onClick={() => handleActionWithCleanup(notif.id, () => router.push(`/chat/${notif.requestId}?role=helper`))} className="btn-primary" style={{ background: '#2196F3', padding: '0.6rem 1.5rem', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '15px' }}>
-                              {isHe ? 'לך לצ׳אט' : 'Go to Chat'}
-                            </button>
-                          ) : notif.type === 'reschedule' ? (
+                            ) : notif.type === 'waiting-list-open' ? (
+                              <>
+                                <button onClick={() => handleWaitlistAccept(notif.id, notif.groupId)} className="btn-primary" style={{ background: '#FF9800', padding: '0.6rem 1.5rem', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '15px' }}>
+                                  {isHe ? 'הצטרף לקבוצה!' : 'Join Group!'}
+                                </button>
+                                <button onClick={() => handleWaitlistDecline(notif.id)} className="btn-secondary" style={{ padding: '0.6rem 1.5rem', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '15px' }}>
+                                  {isHe ? 'איני מעוניין יותר' : 'No longer interested'}
+                                </button>
+                              </>
+                            ) : notif.type === 'reschedule' ? (
                             <>
                               <button className="btn-primary" style={{ background: '#FFC107', color: 'black', padding: '0.6rem 1.2rem', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '15px' }} onClick={() => setShowRescheduleModal(true)}>
                                 {isHe ? 'כן, עדכן' : 'Yes, Update'}

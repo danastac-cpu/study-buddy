@@ -258,6 +258,11 @@ export default function GroupsBrowserPage() {
                    <span style={{ fontSize: '1rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>
                       {group.members.length}/{group.maxMembers}
                    </span>
+                   {group.waitlist.length > 0 && (
+                     <span style={{ fontSize: '0.8rem', color: '#E68A00', fontWeight: '900', marginTop: '0.2rem', textAlign: 'center' }}>
+                       ⏳ {isHe ? `${group.waitlist.length} ממתינים` : `${group.waitlist.length} waiting`}
+                     </span>
+                   )}
                 </div>
               </div>
 
@@ -267,7 +272,7 @@ export default function GroupsBrowserPage() {
                      {isHe ? 'מה תלמדו?' : 'What will you learn?'}
                    </h4>
                    <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
-                     {group.description}
+                     {group.description.replace(/<!--.*?-->/g, '').replace('→', '').trim()}
                    </p>
                 </div>
               )}

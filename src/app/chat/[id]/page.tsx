@@ -302,13 +302,26 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
           <p style={{ margin: '0 0 0.4rem 0', fontSize: '0.8rem' }}><strong>{isHe ? 'נושא:' : 'Topic:'}</strong> {requestDetails?.course_name || '...'}</p>
           
           {isRequester && !starsGranted && (
-            <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px dashed var(--primary-light)' }}>
+            <div style={{ marginTop: '1.2rem', paddingTop: '1.2rem', borderTop: '2px dashed var(--primary-light)' }}>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.8rem', textAlign: 'center' }}>
+                {isHe ? 'מרוצה מהעזרה? פרגנ/י בכוכבים!' : 'Happy with the help? Grant some stars!'}
+              </p>
               <button 
                 onClick={handleGrantStars}
                 className="btn-primary"
-                style={{ width: '100%', padding: '0.6rem', fontSize: '0.85rem', background: '#FFD700', color: 'black' }}
+                style={{ 
+                   width: '100%', 
+                   padding: '0.8rem', 
+                   fontSize: '0.95rem', 
+                   background: '#FFD700', 
+                   color: '#000', 
+                   fontWeight: '900',
+                   boxShadow: '0 4px 15px rgba(255, 215, 0, 0.3)',
+                   border: 'none',
+                   borderRadius: '16px'
+                }}
               >
-                🌟 {isHe ? 'הענק כוכבים' : 'Grant Stars'}
+                🌟 {isHe ? 'הענק כוכבים לעוזר/ת' : 'Grant Stars to Helper'}
               </button>
             </div>
           )}
