@@ -782,7 +782,7 @@ export default function DashboardPage() {
                           {notif.type === 'approval' || notif.type === 'help' ? (
                             <>
                                <button onClick={() => handleActionWithCleanup(notif.id, async () => {
-                                    await supabase.from('help_requests').update({ status: 'active' }).eq('id', notif.requestId);
+                                    await supabase.from('help_requests').update({ status: 'active', requester_revealed: true }).eq('id', notif.requestId);
                                     router.push(`/chat/${notif.requestId}?role=requester`);
                                 })} className="btn-primary" style={{ background: '#4CAF50', padding: '0.6rem 1.2rem', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '15px' }}>
                                   {isHe ? 'הבנתי! אעבור לצ׳אט' : 'Got it! Go to Chat'}

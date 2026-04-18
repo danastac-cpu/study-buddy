@@ -99,6 +99,10 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
             helper_stars: partner.helper_stars || 0
           });
       }
+      
+      // Override based on DB fields
+      setIsMeApproved(amIReq ? (req.requester_revealed || false) : (req.helper_revealed || false));
+      setIsPartnerApproved(amIReq ? (req.helper_revealed || false) : (req.requester_revealed || false));
     }
 
     // 4. Fetch Messages
@@ -271,17 +275,29 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
                 <p style={{ fontSize: '0.75rem', color: 'var(--primary-color)', fontWeight: 'bold', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
                     {isHe ? 'סטטוס חשיפת פרטים' : 'Reveal Status'}
                 </p>
-                {isMeApproved ? (
-                    <p style={{ margin: 0, fontWeight: '700', color: '#4CAF50' }}>{isHe ? '✔️ אישרת חשיפה' : '✔️ You revealed info'}</p>
+                {isRequester ? (
+                  <>
+                    {isMeApproved ? (
+                        <p style={{ margin: 0, fontWeight: '700', color: '#4CAF50' }}>{isHe ? '✔️ אישרת חשיפה' : '✔️ You revealed info'}</p>
+                    ) : (
+                        <button onClick={handleApprove} className="btn-primary" style={{ padding: '0.6rem', width: '100%', fontSize: '0.85rem' }}>
+                            {isHe ? 'אשר/י חשיפת פרטים' : 'Approve Reveal'}
+                        </button>
+                    )}
+                    {isPartnerApproved && !isMeApproved && (
+                        <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.75rem', color: '#4CAF50' }}>
+                            {isHe ? 'העוזר מוכן לסייע! אשרו חשיפת פרטים כדי לראות.' : 'Helper is ready! Approve reveal to see.'}
+                        </p>
+                    )}
+                  </>
                 ) : (
-                    <button onClick={handleApprove} className="btn-primary" style={{ padding: '0.6rem', width: '100%', fontSize: '0.85rem' }}>
-                        {isHe ? 'אשר/י חשיפת פרטים' : 'Approve Reveal'}
-                    </button>
-                )}
-                {isPartnerApproved && !isMeApproved && (
-                    <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.75rem', color: '#4CAF50' }}>
-                        {isHe ? 'השותף/ה אישר/ה! אשרו גם כדי לראות.' : 'Partner approved! Approve to see.'}
+                  <>
+                    <p style={{ margin: 0, fontWeight: '600', color: 'var(--text-main)', fontSize: '0.85rem', lineHeight: '1.4' }}>
+                      {isPartnerApproved 
+                        ? (isHe ? '✔️ הצד השני אישר חשיפה!' : '✔️ The other side approved reveal!') 
+                        : (isHe ? '⌛ ממתינים שהצד השני יאשר חשיפה. בינתיים אפשר לשלוח הודעות בצ׳אט כדי להתחיל!' : '⌛ Waiting for the other side to approve. You can send messages meanwhile to start chatting!')}
                     </p>
+                  </>
                 )}
               </div>
           </div>

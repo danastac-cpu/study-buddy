@@ -92,7 +92,7 @@ export default function HelpCenterPage() {
     const { data: reqData } = await supabase.from('help_requests').select('*, profiles:profiles!requester_id(alias)').eq('id', postId).single();
     
     // 2. Update status
-    const { error } = await supabase.from('help_requests').update({ status: 'pending', helper_id: userId }).eq('id', postId);
+    const { error } = await supabase.from('help_requests').update({ status: 'pending', helper_id: userId, helper_revealed: true }).eq('id', postId);
     
     if (!error && reqData) {
       // 3. Create Update for the requester
