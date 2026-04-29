@@ -147,6 +147,11 @@ export default function GroupsBrowserPage() {
       const status = isFull ? 'waiting' : 'approved';
       const { error } = await supabase.from('group_enrollments').insert([{ group_id: groupId, user_id: currentUser.id, status: status }]);
       
+      if (error) {
+        alert(isHe ? `שגיאה בהצטרפות: ${error.message}` : `Join error: ${error.message}`);
+        console.error("Join Group Error:", error);
+      }
+      
       if (!error) {
         // Notify manager
         const myProfile = await supabase.from('profiles').select('alias').eq('id', currentUser.id).single();

@@ -128,6 +128,27 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const handleDownloadChat = () => {
+    const text = messages.map(m => {
+       if (m.content.startsWith('__SYSTEM_')) return null;
+       const sender = m.sender_id === userId ? (isHe ? 'אני' : 'Me') : (m.sender_name || (isHe ? 'חבר/ה' : 'Member'));
+       const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+       return `[${time}] ${sender}: ${m.content}`;
+    }).filter(Boolean).join('\n\n');
+
+    const header = isHe 
+      ? `=== סיכום צ'אט קבוצתי ===\nקבוצה: ${groupDetails?.title || 'כללי'}\nתאריך: ${new Date().toLocaleDateString()}\n\n`
+      : `=== Group Chat Summary ===\nGroup: ${groupDetails?.title || 'General'}\nDate: ${new Date().toLocaleDateString()}\n\n`;
+
+    const blob = new Blob([header + text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `StudyBuddy_Group_${groupDetails?.title || 'Summary'}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleSaveTime = async () => {
     const { error } = await supabase.from('study_groups').update({ session_time: editTimeValue }).eq('id', roomId);
     if (!error) {
@@ -385,17 +406,27 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
              {isHe ? 'צ׳אט קבוצתי' : 'Group Chat'}
           </h1>
           
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <a 
-              href={`https://meet.jit.si/StudyBuddy-${roomId.replace(/-/g, '')}`}
-              target="_blank"
-              rel="noreferrer"
-              className="btn-secondary" 
-              style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.9rem', border: '1px solid var(--primary-color)', color: 'var(--primary-color)', background: 'white' }}
-            >
-              <span style={{ fontSize: '1.2rem' }}>📹</span> {isHe ? 'יצירת פגישת וידאו' : 'Create Video Meeting'}
-            </a>
-            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '4px' }}>Powered by Jitsi Video Rooms</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  onClick={handleDownloadChat}
+                  className="btn-secondary"
+                  style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.9rem', cursor: 'pointer', border: '1px solid var(--primary-color)', color: 'var(--primary-color)', background: 'white' }}
+                  title={isHe ? "הורד סיכום צ'אט" : "Download Chat Summary"}
+                >
+                  📥 {isHe ? 'הורד סיכום' : 'Download'}
+                </button>
+                <a 
+                  href={`https://meet.jit.si/StudyBuddy-${roomId.replace(/-/g, '')}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn-secondary" 
+                  style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.9rem', border: '1px solid var(--primary-color)', color: 'var(--primary-color)', background: 'white' }}
+                >
+                  <span style={{ fontSize: '1.2rem' }}>📹</span> {isHe ? 'וידאו' : 'Video'}
+                </a>
+            </div>
+            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '2px' }}>Powered by Jitsi Video Rooms</span>
           </div>
         </div>
 

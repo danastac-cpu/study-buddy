@@ -245,7 +245,13 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
     }
     // Also update the help_request table to persist the reveal
     const myColumn = isRequester ? 'requester_revealed' : 'helper_revealed';
-    await supabase.from('help_requests').update({ [myColumn]: true }).eq('id', unwrappedId);
+    const { error } = await supabase.from('help_requests').update({ [myColumn]: true }).eq('id', unwrappedId);
+    
+    if (error) {
+      alert(isHe ? `שגיאה באישור פרטים: ${error.message}` : `Approval error: ${error.message}`);
+      console.error("Reveal Error:", error);
+    }
+    
     loadAllData();
   };
 
