@@ -257,7 +257,7 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
 
   if (!isReady) return null;
 
-  const isFullyApproved = isMeApproved || isPartnerApproved;
+  const isFullyApproved = isMeApproved && isPartnerApproved;
 
   const handleDownloadChat = () => {
     const text = messages.map(m => {

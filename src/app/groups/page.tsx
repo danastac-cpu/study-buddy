@@ -148,7 +148,11 @@ export default function GroupsBrowserPage() {
       const { error } = await supabase.from('group_enrollments').insert([{ group_id: groupId, user_id: currentUser.id, status: status }]);
       
       if (error) {
-        alert(isHe ? `שגיאה בהצטרפות: ${error.message}` : `Join error: ${error.message}`);
+        if (error.message?.includes('duplicate key') || error.code === '23505') {
+          alert(isHe ? 'כבר הצטרפת לקבוצה זו!' : 'You already joined this group!');
+        } else {
+          alert(isHe ? `שגיאה בהצטרפות: ${error.message}` : `Join error: ${error.message}`);
+        }
         console.error("Join Group Error:", error);
       }
       
