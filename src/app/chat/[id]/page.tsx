@@ -355,7 +355,7 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
             {isHe ? 'צ׳אט אישי (1-על-1)' : 'Private Chat (1-on-1)'}
           </h1>
           <a
-            href={`https://meet.jit.si/StudyBuddy-Private-${unwrappedId}`}
+            href={`https://meet.jit.si/StudyBuddy-Private-${unwrappedId.replace(/-/g, '')}`}
             target="_blank"
             rel="noreferrer"
             className="btn-secondary"

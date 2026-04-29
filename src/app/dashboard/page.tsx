@@ -686,9 +686,7 @@ export default function DashboardPage() {
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.4rem' }}>
                       <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                        {session.type === 'group' ? (
-                          <span style={{ opacity: 0.8 }}>{session.details}</span>
-                        ) : (
+                        {session.type === 'group' ? null : (
                           <>
                              <span>👤</span> {isHe ? 'עם' : 'With'} {session.otherName}
                           </>

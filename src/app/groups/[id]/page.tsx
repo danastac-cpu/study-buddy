@@ -387,7 +387,7 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
           
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <a 
-              href={`https://meet.jit.si/StudyBuddy-${roomId}`}
+              href={`https://meet.jit.si/StudyBuddy-${roomId.replace(/-/g, '')}`}
               target="_blank"
               rel="noreferrer"
               className="btn-secondary" 
