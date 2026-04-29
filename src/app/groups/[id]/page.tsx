@@ -137,14 +137,14 @@ export default function GroupChatPage({ params }: { params: Promise<{ id: string
     }).filter(Boolean).join('\n\n');
 
     const header = isHe 
-      ? `=== סיכום צ'אט קבוצתי ===\nקבוצה: ${groupDetails?.title || 'כללי'}\nתאריך: ${new Date().toLocaleDateString()}\n\n`
-      : `=== Group Chat Summary ===\nGroup: ${groupDetails?.title || 'General'}\nDate: ${new Date().toLocaleDateString()}\n\n`;
+      ? `=== סיכום צ'אט קבוצתי ===\nקבוצה: ${savedCourse || savedTopic || 'כללי'}\nתאריך: ${new Date().toLocaleDateString()}\n\n`
+      : `=== Group Chat Summary ===\nGroup: ${savedCourse || savedTopic || 'General'}\nDate: ${new Date().toLocaleDateString()}\n\n`;
 
     const blob = new Blob([header + text], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `StudyBuddy_Group_${groupDetails?.title || 'Summary'}.txt`;
+    a.download = `StudyBuddy_Group_${savedCourse || savedTopic || 'Summary'}.txt`;
     a.click();
     URL.revokeObjectURL(url);
   };
