@@ -256,7 +256,7 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
   const handleDownloadChat = () => {
     const text = messages.map(m => {
        if (m.content.startsWith('__SYSTEM_')) return null;
-       const sender = m.user_id === userId ? (isHe ? 'אני' : 'Me') : (m.profiles?.real_first_name || m.profiles?.alias || (isHe ? 'שותף/ה' : 'Partner'));
+       const sender = m.sender_id === userId ? (isHe ? 'אני' : 'Me') : (m.sender_name || (isHe ? 'שותף/ה' : 'Partner'));
        const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
        return `[${time}] ${sender}: ${m.content}`;
     }).filter(Boolean).join('\n\n');
