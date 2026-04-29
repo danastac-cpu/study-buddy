@@ -101,7 +101,19 @@ export default function DashboardPage() {
           ...(managed || [])
         ].filter((v, i, a) => v && v.id && a.findIndex(t => t?.id === v.id) === i); // Unique & Safe
 
-        setAcceptedGroups(allGroups.map(g => {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        const activeGroups = allGroups.filter(g => {
+          if (!g.session_time || g.session_time === 'TBD' || g.session_time.includes('טרם נקבע')) return true;
+          try {
+             const sessionDate = new Date(g.session_time);
+             if (isNaN(sessionDate.getTime())) return true;
+             return sessionDate >= sevenDaysAgo;
+          } catch(e) { return true; }
+        });
+
+        setAcceptedGroups(activeGroups.map(g => {
           let safeTitle = g.title;
           if (safeTitle && safeTitle.length > 20 && safeTitle.includes('-')) { safeTitle = isHe ? 'קבוצת למידה' : 'Study Group'; }
           return {

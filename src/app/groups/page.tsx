@@ -80,10 +80,24 @@ export default function GroupsBrowserPage() {
           maxMembers: g.max_capacity || 5,
           members: approved,
           waitlist: waiting,
-          joinedStatus: g.manager_id === user?.id ? 'approved' : status as any
+          joinedStatus: g.manager_id === user?.id ? 'approved' : status as any,
+          rawDate: g.session_time || g.date_str
         };
       });
-      setGroups(formatted);
+      
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const activeGroups = formatted.filter(g => {
+         if (!g.rawDate || g.rawDate === 'TBD' || g.rawDate.includes('טרם נקבע')) return true;
+         try {
+           const sessionDate = new Date(g.rawDate);
+           if (isNaN(sessionDate.getTime())) return true;
+           return sessionDate >= sevenDaysAgo;
+         } catch(e) { return true; }
+      });
+
+      setGroups(activeGroups);
     }
     setIsLoading(false);
   };

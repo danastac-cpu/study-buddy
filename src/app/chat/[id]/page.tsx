@@ -346,6 +346,23 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
                 <p style={{ margin: 0, color: '#D4AF37', fontWeight: 'bold', fontSize: '0.85rem' }}>✨ {isHe ? 'הוענקו 2 כוכבים' : '2 Stars Granted'}</p>
              </div>
           )}
+
+          {isRequester && (
+            <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+              <button 
+                onClick={async () => {
+                  if (confirm(isHe ? 'האם את/ה בטוח/ה שסיימתם? פעולה זו תסגור את הבקשה והיא לא תופיע יותר.' : 'Are you sure you are done? This will resolve and hide the request.')) {
+                    await supabase.from('help_requests').update({ status: 'resolved' }).eq('id', unwrappedId);
+                    router.push('/dashboard');
+                  }
+                }}
+                className="btn-secondary"
+                style={{ padding: '0.6rem', width: '100%', fontSize: '0.85rem', color: '#E53935', borderColor: 'rgba(229,57,53,0.3)', background: 'rgba(229,57,53,0.05)', borderRadius: '12px', fontWeight: 'bold' }}
+              >
+                🏁 {isHe ? 'סיימנו! סגור בקשה' : 'Done! Close Request'}
+              </button>
+            </div>
+          )}
         </div>
       </nav>
 
