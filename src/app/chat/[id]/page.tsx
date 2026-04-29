@@ -253,6 +253,27 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
 
   const isFullyApproved = isMeApproved || isPartnerApproved;
 
+  const handleDownloadChat = () => {
+    const text = messages.map(m => {
+       if (m.content.startsWith('__SYSTEM_')) return null;
+       const sender = m.user_id === userId ? (isHe ? 'אני' : 'Me') : (m.profiles?.real_first_name || m.profiles?.alias || (isHe ? 'שותף/ה' : 'Partner'));
+       const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+       return `[${time}] ${sender}: ${m.content}`;
+    }).filter(Boolean).join('\n\n');
+
+    const header = isHe 
+      ? `=== סיכום צ'אט לימודים ===\nנושא: ${requestDetails?.course_name || 'כללי'}\nתאריך: ${new Date().toLocaleDateString()}\n\n`
+      : `=== Study Chat Summary ===\nTopic: ${requestDetails?.course_name || 'General'}\nDate: ${new Date().toLocaleDateString()}\n\n`;
+
+    const blob = new Blob([header + text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `StudyBuddy_Chat_${requestDetails?.course_name || 'Summary'}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="app-wrapper" style={{ direction: isHe ? 'rtl' : 'ltr' }}>
       <nav className="sidebar">
@@ -371,15 +392,25 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
           <h1 style={{ fontSize: '2.2rem', margin: 0, fontFamily: '"DynaPuff", "Fredoka", "Outfit", cursive', color: 'var(--primary-color)' }}>
             {isHe ? 'צ׳אט אישי (1-על-1)' : 'Private Chat (1-on-1)'}
           </h1>
-          <a
-            href={`https://meet.jit.si/StudyBuddy-Private-${unwrappedId.replace(/-/g, '')}`}
-            target="_blank"
-            rel="noreferrer"
-            className="btn-secondary"
-            style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.9rem' }}
-          >
-            📹 {isHe ? 'וידאו' : 'Video'}
-          </a>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              onClick={handleDownloadChat}
+              className="btn-secondary"
+              style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.9rem', cursor: 'pointer' }}
+              title={isHe ? "הורד סיכום צ'אט" : "Download Chat Summary"}
+            >
+              📥 {isHe ? 'הורד סיכום' : 'Download'}
+            </button>
+            <a
+              href={`https://meet.jit.si/StudyBuddy-Private-${unwrappedId.replace(/-/g, '')}`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-secondary"
+              style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+            >
+              📹 {isHe ? 'וידאו' : 'Video'}
+            </a>
+          </div>
         </div>
 
         <div style={{ flex: 1, padding: '2rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
