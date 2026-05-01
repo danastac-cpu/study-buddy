@@ -22,6 +22,7 @@ export default function DashboardPage() {
   const [rescheduleData, setRescheduleData] = useState<{reqId: string, notifId: string} | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleTime, setRescheduleTime] = useState('');
+  const [tempAvatarId, setTempAvatarId] = useState('');
   const [tempAccessoryId, setTempAccessoryId] = useState('');
   const [tempColor, setTempColor] = useState('');
   const [activeCategory, setActiveCategory] = useState('none');
@@ -900,6 +901,7 @@ export default function DashboardPage() {
                                 <button onClick={() => handleDeclineUpdate(notif.id, notif.requestId)} className="btn-secondary" style={{ padding: '0.6rem 1rem', fontSize: '0.9rem', borderRadius: '15px' }}>
                                   {isHe ? 'דחה את הבקשה' : 'Decline Request'}
                                 </button>
+                              </>
                             ) : notif.type === 'details-revealed' ? (
                               <button onClick={() => handleActionWithCleanup(notif.id, () => router.push(`/chat/${notif.request_id || notif.requestId}`))} className="btn-primary" style={{ background: '#4CAF50', padding: '0.6rem 1.5rem', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '15px' }}>
                                 {isHe ? 'מעבר לצ׳אט!' : 'Go to Chat!'}
