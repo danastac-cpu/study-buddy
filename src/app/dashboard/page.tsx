@@ -19,7 +19,9 @@ export default function DashboardPage() {
 
   // Avatar Studio Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [tempAvatarId, setTempAvatarId] = useState('');
+  const [rescheduleData, setRescheduleData] = useState<{reqId: string, notifId: string} | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleTime, setRescheduleTime] = useState('');
   const [tempAccessoryId, setTempAccessoryId] = useState('');
   const [tempColor, setTempColor] = useState('');
   const [activeCategory, setActiveCategory] = useState('none');
@@ -178,22 +180,26 @@ export default function DashboardPage() {
         
         let newUpdatesToInsert: any[] = [];
 
-        // --- RESCHEDULE LOGIC (Urgency Based) ---
+        // --- RESCHEDULE LOGIC (Urgency & Session Time Based) ---
         const pastDue = helpData?.filter(h => {
-          if (h.status !== 'open') return false;
+          if (h.status !== 'open' && h.status !== 'active') return false;
           if (updatesData?.some(u => u.type === 'reschedule' && u.request_id === h.id)) return false;
           
-          if (h.urgency_level === 'today') {
+          if (h.session_time) {
+             const reqDate = new Date(h.session_time);
+             const reqStartOfDay = new Date(reqDate.getFullYear(), reqDate.getMonth(), reqDate.getDate());
+             return reqStartOfDay < startOfToday;
+          }
+          if (h.status === 'open' && h.urgency_level === 'today') {
              const reqTime = new Date(h.created_at);
-             // If created on a prior day, it's past due today.
              const reqStartOfDay = new Date(reqTime.getFullYear(), reqTime.getMonth(), reqTime.getDate());
              return reqStartOfDay < startOfToday;
           }
-          if (h.urgency_level === 'this_week') {
+          if (h.status === 'open' && h.urgency_level === 'this_week') {
              const reqTime = new Date(h.created_at);
              return (now.getTime() - reqTime.getTime()) > 7 * 24 * 60 * 60 * 1000;
           }
-          if (h.date_str && h.date_str !== 'TBD') {
+          if (h.status === 'open' && h.date_str && h.date_str !== 'TBD') {
              try {
                const reqDate = new Date(h.date_str.split(' ')[0]);
                return reqDate < startOfToday;
@@ -216,9 +222,9 @@ export default function DashboardPage() {
           }
         }
 
-        // --- REMINDER LOGIC (< 3 Hours) ---
+        // --- REMINDER LOGIC (Today's meetings and < 3 Hours) ---
         const sessionsToCheck = [
-           ...helpData?.filter(h => h.status === 'active').map(h => ({ id: h.id, time: h.date_str, title: h.course_name, type: 'help' })) || [],
+           ...helpData?.filter(h => h.status === 'active').map(h => ({ id: h.id, time: h.session_time || h.date_str, title: h.course_name || h.topic, type: 'help' })) || [],
            ...allGroups.map(g => ({ id: g.id, time: g.session_time, title: g.title || g.topic || 'Group', type: 'group' }))
         ];
 
@@ -228,19 +234,22 @@ export default function DashboardPage() {
               const sessionDate = new Date(session.time);
               if (isNaN(sessionDate.getTime())) return;
               
+              // Is it today?
+              const isToday = sessionDate.getFullYear() === now.getFullYear() && sessionDate.getMonth() === now.getMonth() && sessionDate.getDate() === now.getDate();
+              
               const hoursDiff = (sessionDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-              // Between 0 and 3 hours from now!
-              if (hoursDiff > 0 && hoursDiff <= 3) {
+              
+              if (isToday && hoursDiff > -1 && hoursDiff <= 24) {
                  if (!updatesData?.some(u => u.type === 'reminder' && (u.request_id === session.id || u.group_id === session.id))) {
                     newUpdatesToInsert.push({
                       user_id: authData.user.id,
                       type: 'reminder',
                       request_id: session.type === 'help' ? session.id : null,
                       group_id: session.type === 'group' ? session.id : null,
-                      title_he: 'תזכורת מפגש קרוב! ⏰',
-                      title_en: 'Upcoming Session Reminder! ⏰',
-                      content_he: `היי! המפגש בנושא ${session.title} מתחיל בקרוב בשעה ${sessionDate.getHours().toString().padStart(2, '0')}:${sessionDate.getMinutes().toString().padStart(2, '0')}. נא להיכנס לאזור הלמידה בזמן!`,
-                      content_en: `Hey! The session about ${session.title} starts soon at ${sessionDate.getHours().toString().padStart(2, '0')}:${sessionDate.getMinutes().toString().padStart(2, '0')}!`
+                      title_he: 'המפגש מתקיים היום! ⏰',
+                      title_en: 'Session is Today! ⏰',
+                      content_he: `היי! המפגש בנושא ${session.title} מתקיים היום בשעה ${sessionDate.getHours().toString().padStart(2, '0')}:${sessionDate.getMinutes().toString().padStart(2, '0')}. נא להיכנס לאזור הלמידה בזמן!`,
+                      content_en: `Hey! The session about ${session.title} is today at ${sessionDate.getHours().toString().padStart(2, '0')}:${sessionDate.getMinutes().toString().padStart(2, '0')}!`
                     });
                  }
               }
@@ -346,6 +355,19 @@ export default function DashboardPage() {
       await supabase.from('help_requests').delete().eq('id', requestId);
       alert(isHe ? 'הבקשה בוטלה והוסרה.' : 'The request has been canceled and removed.');
     }
+    router.refresh();
+  };
+
+  const handleRescheduleSubmit = async () => {
+    if (!rescheduleData) return;
+    const sessionTime = rescheduleDate + (rescheduleTime ? `T${rescheduleTime}` : '');
+    
+    // Attempt to update session_time, falling back to date_str if it's an open request without session_time column setup perfectly yet.
+    await supabase.from('help_requests').update({ session_time: sessionTime, date_str: sessionTime }).eq('id', rescheduleData.reqId);
+    await supabase.from('updates').delete().eq('id', rescheduleData.notifId);
+    
+    setRescheduleData(null);
+    alert(isHe ? 'הזמנים עודכנו בהצלחה!' : 'Times updated successfully!');
     router.refresh();
   };
 
@@ -878,7 +900,10 @@ export default function DashboardPage() {
                                 <button onClick={() => handleDeclineUpdate(notif.id, notif.requestId)} className="btn-secondary" style={{ padding: '0.6rem 1rem', fontSize: '0.9rem', borderRadius: '15px' }}>
                                   {isHe ? 'דחה את הבקשה' : 'Decline Request'}
                                 </button>
-                              </>
+                            ) : notif.type === 'details-revealed' ? (
+                              <button onClick={() => handleActionWithCleanup(notif.id, () => router.push(`/chat/${notif.request_id || notif.requestId}`))} className="btn-primary" style={{ background: '#4CAF50', padding: '0.6rem 1.5rem', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '15px' }}>
+                                {isHe ? 'מעבר לצ׳אט!' : 'Go to Chat!'}
+                              </button>
                             ) : notif.type === 'helper-approved' ? (
                               <button onClick={() => handleActionWithCleanup(notif.id, () => router.push(`/chat/${notif.requestId}?role=helper`))} className="btn-primary" style={{ background: '#2196F3', padding: '0.6rem 1.5rem', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '15px' }}>
                                 {isHe ? 'לך לצ׳אט' : 'Go to Chat'}
@@ -898,7 +923,7 @@ export default function DashboardPage() {
                               </>
                             ) : notif.type === 'reschedule' ? (
                             <>
-                              <button className="btn-primary" style={{ background: '#FFC107', color: 'black', padding: '0.6rem 1.2rem', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '15px' }} onClick={() => setShowRescheduleModal(true)}>
+                              <button className="btn-primary" style={{ background: '#FFC107', color: 'black', padding: '0.6rem 1.2rem', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '15px' }} onClick={() => setRescheduleData({reqId: notif.requestId!, notifId: notif.id})}>
                                 {isHe ? 'כן, עדכן' : 'Yes, Update'}
                               </button>
                               <button onClick={() => handleDeclineUpdate(notif.id, notif.requestId)} className="btn-secondary" style={{ padding: '0.6rem 1rem', fontSize: '0.9rem', borderRadius: '15px' }}>
@@ -936,35 +961,24 @@ export default function DashboardPage() {
       </main>
 
       {/* Reschedule Modal */}
-      {showRescheduleModal && (
+      {rescheduleData && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div className="glass-card" style={{ width: '400px', maxWidth: '90%', padding: '2rem' }}>
             <h3 style={{ margin: '0 0 1rem 0', color: 'var(--primary-dark)', fontSize: '1.4rem' }}>
-              {isHe ? 'עדכון זמני הבקשה' : 'Update Request Times'}
+              {isHe ? 'עדכון תאריך ושעה' : 'Update Date & Time'}
             </h3>
-
-            <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--text-main)' }}>
-              {isHe ? 'רמת דחיפות מועדפת' : 'Preferred Urgency'}
-            </label>
-            <select className="input-field" style={{ marginBottom: '1.5rem', width: '100%' }}>
-              <option value="this_week">{isHe ? 'השבוע' : 'This Week'}</option>
-              <option value="not_urgent">{isHe ? 'גמיש / לא דחוף' : 'Flexible / Not Urgent'}</option>
-            </select>
 
             <label style={{ display: 'block', fontWeight: 'bold', margin: '0 0 0.1rem 0', color: 'var(--text-main)' }}>
               {isHe ? 'תאריך ושעה' : 'Date & Time'}
             </label>
-            <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.6rem' }}>
-              {isHe ? '(אופציונאלי)' : '(Optional)'}
-            </span>
             <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-              <input type="date" className="input-field" style={{ flex: 1 }} />
-              <input type="time" className="input-field" style={{ width: '150px' }} />
+              <input type="date" className="input-field" style={{ flex: 1 }} value={rescheduleDate} onChange={e => setRescheduleDate(e.target.value)} />
+              <input type="time" className="input-field" style={{ width: '150px' }} value={rescheduleTime} onChange={e => setRescheduleTime(e.target.value)} />
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-              <button className="btn-secondary" onClick={() => setShowRescheduleModal(false)}>{isHe ? 'ביטול' : 'Cancel'}</button>
-              <button className="btn-primary" onClick={() => { setShowRescheduleModal(false); alert(isHe ? 'הזמנים עודכנו בהצלחה!' : 'Times updated successfully!'); }}>{isHe ? 'שמור' : 'Save'}</button>
+              <button className="btn-secondary" onClick={() => setRescheduleData(null)}>{isHe ? 'ביטול' : 'Cancel'}</button>
+              <button className="btn-primary" onClick={handleRescheduleSubmit}>{isHe ? 'שמור ועדכן' : 'Save Update'}</button>
             </div>
           </div>
         </div>

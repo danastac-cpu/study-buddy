@@ -40,6 +40,8 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
   const [profile, setProfile] = useState<any>(null);
   const [starsGranted, setStarsGranted] = useState(false);
   const [requestDetails, setRequestDetails] = useState<any>(null);
+  const [isEditingTime, setIsEditingTime] = useState(false);
+  const [editTimeValue, setEditTimeValue] = useState('');
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -106,7 +108,7 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
     }
 
     // 4. Fetch Messages
-    const { data: msgs } = await supabase.from('private_messages').select('*').eq('room_id', roomId).order('created_at', { ascending: true });
+    const { data: msgs } = await supabase.from('messages').select('*').eq('room_id', roomId).order('created_at', { ascending: true });
     if (msgs) {
       setMessages(msgs);
       processSystemMessages(msgs, uid);
@@ -118,7 +120,7 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
     
     const roomId = `private_${unwrappedId}`;
     const channel = supabase.channel(`pchat_${unwrappedId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages', filter: `room_id=eq.${roomId}` },
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `room_id=eq.${roomId}` },
         (payload) => {
           const newMsg = payload.new as Message;
           setMessages((prev) => {
@@ -154,7 +156,7 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
     setReplyTo(null);
     const roomId = `private_${unwrappedId}`;
 
-    await supabase.from('private_messages').insert([{
+    await supabase.from('messages').insert([{
       room_id: roomId,
       sender_id: userId,
       sender_name: contentOverride ? 'System' : userName,
@@ -193,7 +195,7 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
       const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt?.toLowerCase() || '');
       const content = isImage ? `__MEDIA_IMAGE__:${publicUrl}` : `__MEDIA_FILE__:${file.name}|${publicUrl}`;
 
-      await supabase.from('private_messages').insert([{
+      await supabase.from('messages').insert([{
         room_id: roomId,
         sender_id: userId,
         sender_name: userName,
@@ -235,7 +237,7 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
     if (partnerProfile?.id) {
        await supabase.from('updates').insert([{
          user_id: partnerProfile.id,
-         type: 'new-member',
+         type: 'details-revealed',
          request_id: unwrappedId,
          title_he: 'הפרטים נחשפו! 🔓',
          title_en: 'Details Revealed! 🔓',
@@ -253,6 +255,16 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
     }
     
     loadAllData();
+  };
+
+  const handleSaveTime = async () => {
+    const { error } = await supabase.from('help_requests').update({ session_time: editTimeValue }).eq('id', unwrappedId);
+    if (!error) {
+      loadAllData();
+      setIsEditingTime(false);
+    } else {
+      alert(isHe ? `שגיאה בשמירת הזמן: ${error.message}` : `Error saving time: ${error.message}`);
+    }
   };
 
   if (!isReady) return null;
@@ -331,7 +343,6 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
 
           {isFullyApproved && (
               <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'white', borderRadius: '12px', border: '2px solid var(--primary-color)' }}>
-                  <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${partnerProfile?.id}`} style={{ width: '40px', height: '40px', borderRadius: '50%', marginBottom: '0.5rem' }} />
                   <p style={{ margin: '0 0 0.5rem 0', fontWeight: '800', color: 'var(--primary-color)' }}>{isHe ? 'פרטי השותף/ה:' : 'Partner Details:'}</p>
                   <p style={{ margin: 0, fontWeight: '700' }}>{partnerProfile?.real_name || partnerProfile?.alias}</p>
                   <p style={{ margin: 0, fontSize: '0.85rem' }}>{partnerProfile?.degree} • {partnerProfile?.year}</p>
@@ -344,6 +355,32 @@ export default function PrivateChatPage({ params }: { params: Promise<{ id: stri
           <h3 style={{ fontSize: '0.9rem', marginBottom: '0.5rem', color: 'var(--primary-dark)' }}>ℹ️ {isHe ? 'פרטי השיעור' : 'Lesson Details'}</h3>
           <p style={{ margin: '0 0 0.4rem 0', fontSize: '0.8rem' }}><strong>{isHe ? 'נושא:' : 'Topic:'}</strong> {requestDetails?.course_name || '...'}</p>
           
+          <div style={{ margin: '1rem 0', padding: '0.8rem', background: 'rgba(138, 99, 210, 0.05)', borderRadius: '8px' }}>
+            {isEditingTime ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <input 
+                  type="datetime-local" 
+                  className="input-field" 
+                  value={editTimeValue}
+                  onChange={e => setEditTimeValue(e.target.value)}
+                />
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button onClick={handleSaveTime} className="btn-primary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', flex: 1 }}>{isHe ? 'שמור' : 'Save'}</button>
+                  <button onClick={() => setIsEditingTime(false)} className="btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', flex: 1 }}>{isHe ? 'ביטול' : 'Cancel'}</button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 'bold' }}>
+                  <span style={{ fontSize: '1rem' }}>🕒</span> {requestDetails?.session_time ? new Date(requestDetails.session_time).toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' }) : (isHe ? 'טרם נקבע מועד' : 'TBD')}
+                </p>
+                <button onClick={() => { setEditTimeValue(requestDetails?.session_time || ''); setIsEditingTime(true); }} className="btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', border: 'none', background: 'rgba(0,0,0,0.05)' }}>
+                  {isHe ? 'ערוך מועד' : 'Edit Time'}
+                </button>
+              </div>
+            )}
+          </div>
+
           {isRequester && !starsGranted && (
             <div style={{ marginTop: '1.2rem', paddingTop: '1.2rem', borderTop: '2px dashed var(--primary-light)' }}>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.8rem', textAlign: 'center' }}>
